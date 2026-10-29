@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: instasquad_app
+    ports:
+      - "4000:4000"
+      - "5173:5173"
+    environment:
+      - PORT=4000
+      - NODE_ENV=development
+      - DATABASE_URL=file:./prisma/dev.db
+      - JWT_SECRET=instasquad_super_secret_jwt_demo_key_2026
+      - CLIENT_URL=http://localhost:5173
+    restart: unless-stopped
+

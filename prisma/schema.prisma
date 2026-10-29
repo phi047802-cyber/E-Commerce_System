@@ -1,0 +1,463 @@
+// INSTASQUAD — Prisma Schema
+// Tương thích SQLite 3 (local) và PostgreSQL (production)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id       String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  display_name  String
+  phone_number  String?
+  role          String   @default("RENTER") // RENTER, COMPANION, CS_AGENT, AUDITOR, ADMIN
+  status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, BANNED
+  created_at    DateTime @default(now())
+
+  // Quan hệ
+  companion_profile   CompanionProfile?
+  wallet              Wallet?
+  bookings_as_renter  Booking[]            @relation("RenterBookings")
+  bookings_cancelled  Booking[]            @relation("CancelledByBookings")
+  booking_changes     BookingStatusHistory[]
+  chat_messages       ChatMessage[]
+  disputes_as_renter  DisputeCase[]        @relation("RenterDisputes")
+  evidences_uploaded  DisputeEvidence[]
+  decisions_as_cs     DisputeDecision[]
+  reviews_written     Review[]             @relation("Reviewer")
+  reviews_received    Review[]             @relation("Reviewee")
+  notifications       Notification[]
+  audit_logs          AuditLog[]
+  alerts_resolved     LedgerAuditAlert[]
+
+  @@map("users")
+}
+
+model CompanionProfile {
+  profile_id          String   @id @default(uuid())
+  user_id             String   @unique
+  game_id             String
+  verified_tier_id    String
+  hourly_rate         Int      // Số nguyên VND
+  verification_status String   @default("UNVERIFIED") // UNVERIFIED, PENDING_REVIEW, VERIFIED
+  availability        String   @default("OFFLINE") // ONLINE, BUSY, OFFLINE
+  trust_score         Float    @default(80.00) // Khởi tạo 80.00 theo Demo Policy
+  audio_bio_url       String?
+  game_account_id     String
+  created_at          DateTime @default(now())
+
+  // Quan hệ
+  user             User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  game             GameCatalog      @relation(fields: [game_id], references: [game_id])
+  tier             SkillRankTier    @relation(fields: [verified_tier_id], references: [tier_id])
+  slots            SlotCalendar[]
+  bookings         Booking[]
+  trust_score_logs TrustScoreLog[]
+
+  @@map("companion_profiles")
+}
+
+model GameCatalog {
+  game_id    String   @id
+  game_name  String
+  publisher  String
+  genre      String
+  is_active  Boolean  @default(true)
+
+  // Quan hệ
+  tiers      SkillRankTier[]
+  profiles   CompanionProfile[]
+
+  @@map("game_catalog")
+}
+
+model SkillRankTier {
+  tier_id     String   @id
+  game_id     String
+  tier_name   String
+  rank_weight Int
+
+  // Quan hệ
+  game        GameCatalog        @relation(fields: [game_id], references: [game_id], onDelete: Cascade)
+  profiles    CompanionProfile[]
+
+  @@map("skill_rank_tier")
+}
+
+model SlotCalendar {
+  slot_id    String   @id @default(uuid())
+  profile_id String
+  start_time DateTime
+  end_time   DateTime
+  status     String   @default("AVAILABLE") // AVAILABLE, HELD, BOOKED
+  held_until DateTime?
+  created_at DateTime @default(now())
+
+  // Quan hệ
+  profile    CompanionProfile @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade)
+  booking    Booking?
+
+  @@index([profile_id, start_time])
+  @@index([status, held_until])
+  @@map("slot_calendar")
+}
+
+model Booking {
+  booking_id          String   @id @default(uuid())
+  renter_id           String
+  profile_id          String
+  slot_id             String   @unique
+  request_key         String   @unique // Chống đặt trùng (BR-01)
+  start_time          DateTime
+  duration_hours      Int
+  total_fee_snapshot  Int      // Số nguyên VND chốt tại thời điểm đặt (BR-04)
+  status              String   @default("PENDING_ACCEPTANCE") // PENDING_ACCEPTANCE, ACCEPTED, IN_SESSION, COMPLETED, CANCELLED, DISPUTED, REFUNDED
+  response_deadline   DateTime // 180s đếm ngược (BR-08)
+  confirm_deadline    DateTime? // 15 phút nghiệm thu (BR-14)
+  cancel_reason       String?
+  cancelled_by        String?
+  cancelled_at        DateTime?
+  created_at          DateTime @default(now())
+
+  // Quan hệ
+  renter              User                   @relation("RenterBookings", fields: [renter_id], references: [user_id])
+  companion           CompanionProfile       @relation(fields: [profile_id], references: [profile_id])
+  slot                SlotCalendar           @relation(fields: [slot_id], references: [slot_id])
+  canceller           User?                  @relation("CancelledByBookings", fields: [cancelled_by], references: [user_id])
+  escrow              Escrow?
+  history             BookingStatusHistory[]
+  session             Session?
+  dispute             DisputeCase?
+  reviews             Review[]
+  trust_logs          TrustScoreLog[]
+  transactions        LedgerTransaction[]
+
+  @@index([renter_id])
+  @@index([profile_id])
+  @@index([status])
+  @@map("bookings")
+}
+
+model BookingStatusHistory {
+  history_id   Int      @id @default(autoincrement())
+  booking_id   String
+  from_status  String?
+  to_status    String
+  reason       String?
+  changed_by   String?
+  changed_at   DateTime @default(now())
+
+  // Quan hệ
+  booking      Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  actor        User?    @relation(fields: [changed_by], references: [user_id])
+
+  @@index([booking_id])
+  @@map("booking_status_history")
+}
+
+model Session {
+  session_id   String   @id @default(uuid())
+  booking_id   String   @unique
+  status       String   @default("SCHEDULED") // SCHEDULED, ACTIVE, ENDED, CLOSED
+  start_time   DateTime
+  end_time     DateTime
+  room_token   String   @unique
+  created_at   DateTime @default(now())
+
+  // Quan hệ
+  booking      Booking       @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  messages     ChatMessage[]
+
+  @@map("sessions")
+}
+
+model ChatMessage {
+  message_id       Int      @id @default(autoincrement())
+  session_id       String
+  sender_id        String
+  content          String   // Nội dung đã kiểm duyệt
+  is_censored      Boolean  @default(false)
+  original_content String?  // Nội dung gốc phục vụ kiểm toán
+  created_at       DateTime @default(now())
+
+  // Quan hệ
+  session          Session  @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+  sender           User     @relation(fields: [sender_id], references: [user_id])
+
+  @@index([session_id, created_at])
+  @@map("chat_messages")
+}
+
+model Wallet {
+  wallet_id         String   @id @default(uuid())
+  user_id           String   @unique
+  wallet_type       String   @default("STANDARD")
+  available_balance Int      @default(0) // Số nguyên VND >= 0
+  escrow_balance    Int      @default(0) // Số nguyên VND >= 0
+  version           Int      @default(1) // Optimistic Lock
+  updated_at        DateTime @default(now())
+
+  // Quan hệ
+  user              User                @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  entries           LedgerEntry[]
+  withdrawals       WithdrawalRequest[]
+
+  @@map("wallets")
+}
+
+model Escrow {
+  escrow_id   String   @id @default(uuid())
+  booking_id  String   @unique
+  amount      Int      // Số nguyên VND
+  status      String   @default("HELD") // HELD, FROZEN, RELEASED, REFUNDED
+  held_at     DateTime @default(now())
+  frozen_at   DateTime?
+  released_at DateTime?
+  refunded_at DateTime?
+
+  // Quan hệ
+  booking     Booking             @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  transactions LedgerTransaction[]
+
+  @@map("escrows")
+}
+
+model LedgerTransaction {
+  txn_id          String   @id @default(uuid())
+  booking_id      String?
+  escrow_id       String?
+  txn_type        String   // TOPUP, ESCROW_HOLD, ESCROW_RELEASE, ESCROW_REFUND, CANCEL_PENALTY, DISPUTE_SETTLE, WITHDRAW_RESERVE, WITHDRAW_SETTLE, WITHDRAW_REJECT
+  idempotency_key String   @unique // Chống cộng trừ trùng
+  created_at      DateTime @default(now())
+
+  // Quan hệ
+  booking         Booking?           @relation(fields: [booking_id], references: [booking_id])
+  escrow          Escrow?            @relation(fields: [escrow_id], references: [escrow_id])
+  entries         LedgerEntry[]
+  payment         Payment?
+  platform_revenue PlatformRevenue?
+  withdrawal      WithdrawalRequest?
+  alerts          LedgerAuditAlert[]
+
+  @@index([idempotency_key])
+  @@index([booking_id])
+  @@map("ledger_transactions")
+}
+
+model LedgerEntry {
+  entry_id      String   @id @default(uuid())
+  txn_id        String
+  wallet_id     String
+  direction     String   // DEBIT, CREDIT
+  balance_type  String   // AVAILABLE, ESCROW
+  amount        Int      // Số nguyên VND > 0
+  balance_after Int      // Số dư sau khi ghi nhận
+  created_at    DateTime @default(now())
+
+  // Quan hệ
+  transaction   LedgerTransaction @relation(fields: [txn_id], references: [txn_id], onDelete: Cascade)
+  wallet        Wallet            @relation(fields: [wallet_id], references: [wallet_id], onDelete: Cascade)
+
+  @@index([wallet_id, created_at])
+  @@index([txn_id])
+  @@map("ledger_entries")
+}
+
+model Payment {
+  payment_id   String   @id @default(uuid())
+  txn_id       String?  @unique
+  wallet_id    String
+  provider     String   @default("MOCK_VNPAY") // MOCK_VNPAY, MOCK_MOMO
+  gateway_ref  String   @unique
+  amount       Int      // Số nguyên VND
+  status       String   @default("PENDING") // PENDING, SUCCESS, FAILED, EXPIRED
+  created_at   DateTime @default(now())
+  processed_at DateTime?
+
+  // Quan hệ
+  transaction  LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
+
+  @@index([gateway_ref])
+  @@map("payments")
+}
+
+model PlatformRevenue {
+  revenue_id      String   @id @default(uuid())
+  txn_id          String   @unique
+  amount          Int      // Số nguyên VND (12% hoa hồng)
+  commission_rate Float    @default(0.12)
+  created_at      DateTime @default(now())
+
+  // Quan hệ
+  transaction     LedgerTransaction @relation(fields: [txn_id], references: [txn_id], onDelete: Cascade)
+
+  @@map("platform_revenues")
+}
+
+model WithdrawalRequest {
+  withdraw_id       String   @id @default(uuid())
+  wallet_id         String
+  txn_id            String?  @unique
+  amount            Int      // Số nguyên VND
+  bank_name         String
+  account_no_masked String
+  status            String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, REJECTED
+  processed_by      String?
+  reject_reason     String?
+  payout_code       String?
+  idempotency_key   String?  @unique
+  processed_at      DateTime?
+  created_at        DateTime @default(now())
+
+  // Quan hệ
+  wallet            Wallet             @relation(fields: [wallet_id], references: [wallet_id])
+  transaction       LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
+
+  @@index([wallet_id])
+  @@map("withdrawal_requests")
+}
+
+model DisputeCase {
+  dispute_id      String   @id @default(uuid())
+  booking_id      String   @unique // Chống tạo trùng khiếu nại (BR-26)
+  renter_id       String
+  reason_category String   // NO_SHOW, HARASSMENT, SKILL_MISMATCH, TECHNICAL_ISSUE
+  description     String
+  status          String   @default("OPENED") // OPENED, EVIDENCE_PENDING, UNDER_REVIEW, RESOLVED, CLOSED
+  created_at      DateTime @default(now())
+  resolved_at     DateTime?
+
+  // Quan hệ
+  booking         Booking           @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  renter          User              @relation("RenterDisputes", fields: [renter_id], references: [user_id])
+  evidences       DisputeEvidence[]
+  decision        DisputeDecision?
+
+  @@map("dispute_cases")
+}
+
+model DisputeEvidence {
+  evidence_id String   @id @default(uuid())
+  dispute_id  String
+  uploader_id String
+  file_url    String
+  file_type   String   // IMAGE_PNG, IMAGE_JPEG, LOG_TEXT
+  description String?
+  created_at  DateTime @default(now())
+
+  // Quan hệ
+  dispute     DisputeCase @relation(fields: [dispute_id], references: [dispute_id], onDelete: Cascade)
+  uploader    User        @relation(fields: [uploader_id], references: [user_id])
+
+  @@index([dispute_id])
+  @@map("dispute_evidences")
+}
+
+model DisputeDecision {
+  decision_id     String   @id @default(uuid())
+  dispute_id      String   @unique
+  cs_agent_id     String
+  fault_percent   Int      // Tỷ lệ lỗi Companion (0 - 100)
+  refund_amount   Int      @default(0) // Số nguyên VND hoàn Renter
+  penalty_amount  Int      @default(0) // Số nguyên VND phạt Companion
+  decision_reason String   // Lý do bắt buộc theo D15
+  created_at      DateTime @default(now())
+
+  // Quan hệ
+  dispute         DisputeCase @relation(fields: [dispute_id], references: [dispute_id], onDelete: Cascade)
+  cs_agent        User        @relation(fields: [cs_agent_id], references: [user_id])
+
+  @@map("dispute_decisions")
+}
+
+model Review {
+  review_id   Int      @id @default(autoincrement())
+  booking_id  String
+  reviewer_id String
+  reviewee_id String
+  rating      Int      // 1 đến 5 sao
+  comment     String?
+  created_at  DateTime @default(now())
+
+  // Quan hệ
+  booking     Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  reviewer    User     @relation("Reviewer", fields: [reviewer_id], references: [user_id])
+  reviewee    User     @relation("Reviewee", fields: [reviewee_id], references: [user_id])
+
+  @@unique([booking_id, reviewer_id]) // Mỗi người chỉ đánh giá 1 lần/booking (BR-22, D17)
+  @@map("reviews")
+}
+
+model TrustScoreLog {
+  log_id      Int      @id @default(autoincrement())
+  profile_id  String
+  booking_id  String?
+  reason_code String
+  delta       Float
+  score_after Float
+  created_at  DateTime @default(now())
+
+  // Quan hệ
+  profile     CompanionProfile @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade)
+  booking     Booking?         @relation(fields: [booking_id], references: [booking_id])
+
+  @@index([profile_id])
+  @@map("trust_score_logs")
+}
+
+model Notification {
+  notification_id Int      @id @default(autoincrement())
+  user_id         String
+  title           String
+  message         String
+  type            String
+  is_read         Boolean  @default(false)
+  created_at      DateTime @default(now())
+
+  // Quan hệ
+  user            User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id, is_read])
+  @@map("notifications")
+}
+
+model AuditLog {
+  audit_id     Int      @id @default(autoincrement())
+  actor_id     String?
+  action       String
+  entity_type  String
+  entity_id    String
+  payload_json String?
+  ip_address   String?
+  created_at   DateTime @default(now())
+
+  // Quan hệ
+  actor        User?    @relation(fields: [actor_id], references: [user_id])
+
+  @@index([entity_type, entity_id])
+  @@map("audit_logs")
+}
+
+model LedgerAuditAlert {
+  alert_id      Int      @id @default(autoincrement())
+  txn_id        String?
+  error_code    String
+  error_message String
+  context_json  String?
+  is_resolved   Boolean  @default(false)
+  resolved_by   String?
+  created_at    DateTime @default(now())
+
+  // Quan hệ
+  transaction   LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
+  resolver      User?              @relation(fields: [resolved_by], references: [user_id])
+
+  @@index([is_resolved])
+  @@map("ledger_audit_alerts")
+}
