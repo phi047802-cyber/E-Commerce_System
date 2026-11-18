@@ -7,12 +7,16 @@ export interface TrustScoreBreakdown {
   current_score: number;
   rating_100: number;
   avg_stars: number;
+  average_rating?: number;
   review_count: number;
+  total_reviews?: number;
   completion_rate: number;
   completed_bookings: number;
   dispute_rate: number;
   faulted_disputes: number;
+  faulty_disputes?: number;
   total_bookings_accepted: number;
+  total_accepted_bookings?: number;
   direct_penalties: number;
   is_suspended: boolean;
 }
@@ -87,11 +91,11 @@ export class TrustScoreService {
       rating100 = (avgStars / 5.0) * 100;
     }
 
-    // 4. Tính toán CompletionRate và DisputeRate từ Bookings đã nhận (Accepted/InSession/Completed/Disputed)
+    // 4. Tính toán CompletionRate và DisputeRate từ Bookings đã nhận (Accepted/InSession/Completed/Disputed/Refunded)
     const acceptedBookings = await prisma.booking.findMany({
       where: {
         profile_id: profileId,
-        status: { in: ['ACCEPTED', 'IN_SESSION', 'COMPLETED', 'DISPUTED'] },
+        status: { in: ['ACCEPTED', 'IN_SESSION', 'COMPLETED', 'DISPUTED', 'REFUNDED'] },
       },
       include: {
         dispute: {
@@ -110,7 +114,7 @@ export class TrustScoreService {
       completedCount = acceptedBookings.filter((b) => b.status === 'COMPLETED').length;
       completionRate = (completedCount / totalAccepted) * 100;
 
-      // Đơn bị phán quyết lỗi Companion >= 80%
+      // D23: [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định] Chỉ tính đơn lỗi >= 80% vào tỷ lệ tranh chấp; lỗi 1-79% không phạt, không tính vào disputeRate
       faultedDisputeCount = acceptedBookings.filter(
         (b) => b.dispute?.decision && b.dispute.decision.fault_percent >= 80
       ).length;
@@ -169,12 +173,16 @@ export class TrustScoreService {
       current_score: clampedScore,
       rating_100: Math.round(rating100 * 100) / 100,
       avg_stars: Math.round(avgStars * 100) / 100,
+      average_rating: Math.round(avgStars * 100) / 100,
       review_count: reviews.length,
+      total_reviews: reviews.length,
       completion_rate: Math.round(completionRate * 100) / 100,
       completed_bookings: completedCount,
       dispute_rate: Math.round(disputeRate * 100) / 100,
       faulted_disputes: faultedDisputeCount,
+      faulty_disputes: faultedDisputeCount,
       total_bookings_accepted: totalAccepted,
+      total_accepted_bookings: totalAccepted,
       direct_penalties: directPenalties,
       is_suspended: isSuspended,
     };
@@ -297,7 +305,7 @@ export class TrustScoreService {
     const acceptedBookings = await prisma.booking.findMany({
       where: {
         profile_id: profileId,
-        status: { in: ['ACCEPTED', 'IN_SESSION', 'COMPLETED', 'DISPUTED'] },
+        status: { in: ['ACCEPTED', 'IN_SESSION', 'COMPLETED', 'DISPUTED', 'REFUNDED'] },
       },
       include: {
         dispute: { include: { decision: true } },
@@ -333,12 +341,16 @@ export class TrustScoreService {
       current_score: profile.trust_score,
       rating_100: Math.round(rating100 * 100) / 100,
       avg_stars: Math.round(avgStars * 100) / 100,
+      average_rating: Math.round(avgStars * 100) / 100,
       review_count: reviews.length,
+      total_reviews: reviews.length,
       completion_rate: Math.round(completionRate * 100) / 100,
       completed_bookings: completedCount,
       dispute_rate: Math.round(disputeRate * 100) / 100,
       faulted_disputes: faultedCount,
+      faulty_disputes: faultedCount,
       total_bookings_accepted: totalAccepted,
+      total_accepted_bookings: totalAccepted,
       direct_penalties: directPenalties,
       is_suspended: profile.trust_score < 40.0,
     };

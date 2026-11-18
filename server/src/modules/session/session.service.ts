@@ -7,6 +7,7 @@ import {
 } from '../../common/errors.js';
 import { env } from '../../config/env.js';
 import { logger } from '../../common/logger.js';
+import { encryptText, decryptText } from '../../common/crypto.js';
 
 // Danh sách từ khóa nhạy cảm / vi phạm chính sách giao dịch ngoài sàn
 const SENSITIVE_PATTERNS = [
@@ -221,6 +222,7 @@ export class SessionService {
 
   /**
    * Gửi tin nhắn trong phòng phiên chơi kèm bộ lọc kiểm duyệt nội dung văn bản đơn giản
+   * Bảo mật Đợt D1b - Mục B.2: stripped hoàn toàn original_content trong API phòng chat thường
    */
   async sendMessage(userId: string, userRole: string, sessionId: string, content: string) {
     const { session } = await this.checkSessionAccess(userId, userRole, sessionId);
@@ -244,9 +246,9 @@ export class SessionService {
       data: {
         session_id: sessionId,
         sender_id: userId,
-        content: sanitizedContent,
+        content: encryptText(sanitizedContent),
         is_censored: isCensored,
-        original_content: isCensored ? content : null,
+        original_content: isCensored ? encryptText(content) : null,
       },
       include: {
         sender: {
@@ -259,23 +261,22 @@ export class SessionService {
       },
     });
 
-    const isStaff = ['CS_AGENT', 'ADMIN', 'AUDITOR'].includes(userRole);
-
     return {
       message_id: message.message_id,
       session_id: message.session_id,
       sender_id: message.sender_id,
       sender_name: message.sender.display_name,
       sender_role: message.sender.role,
-      content: message.content,
+      content: sanitizedContent,
       is_censored: message.is_censored,
-      original_content: isStaff ? message.original_content : undefined,
+      original_content: undefined,
       created_at: message.created_at,
     };
   }
 
   /**
    * Lấy lịch sử tin nhắn phòng chơi (Hỗ trợ Polling qua afterId)
+   * Bảo mật Đợt D1b - Mục B.2: stripped hoàn toàn original_content trong API phòng chat thường
    */
   async getMessages(userId: string, userRole: string, sessionId: string, afterId?: number) {
     const { isStaff } = await this.checkSessionAccess(userId, userRole, sessionId);
@@ -304,10 +305,62 @@ export class SessionService {
       sender_id: m.sender_id,
       sender_name: m.sender.display_name,
       sender_role: m.sender.role,
-      content: m.content,
+      content: decryptText(m.content),
       is_censored: m.is_censored,
-      original_content: isStaff ? m.original_content : undefined,
+      original_content: isStaff && m.original_content ? decryptText(m.original_content) : undefined,
       created_at: m.created_at,
+    }));
+  }
+
+  /**
+   * Lấy cấu hình ICE Servers phục vụ WebRTC Voice Call (FR-006)
+   */
+  async getIceServers(userId: string, userRole: string, sessionId: string) {
+    await this.checkSessionAccess(userId, userRole, sessionId);
+
+    try {
+      const parsed = JSON.parse(env.ICE_SERVERS);
+      return { ice_servers: parsed };
+    } catch {
+      return {
+        ice_servers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ],
+      };
+    }
+  }
+
+  /**
+   * Lấy lịch sử cuộc gọi thoại CallLog của phiên chơi (FR-006)
+   */
+  async getCallLogs(userId: string, userRole: string, sessionId: string) {
+    await this.checkSessionAccess(userId, userRole, sessionId);
+
+    const callLogs = await prisma.callLog.findMany({
+      where: { session_id: sessionId },
+      orderBy: { started_at: 'desc' },
+      include: {
+        caller: { select: { user_id: true, display_name: true, role: true } },
+        receiver: { select: { user_id: true, display_name: true, role: true } },
+      },
+    });
+
+    return callLogs.map((log) => ({
+      call_id: log.call_id,
+      session_id: log.session_id,
+      caller_id: log.caller_id,
+      caller_name: log.caller.display_name,
+      caller_role: log.caller.role,
+      receiver_id: log.receiver_id,
+      receiver_name: log.receiver?.display_name || null,
+      receiver_role: log.receiver?.role || null,
+      started_at: log.started_at,
+      ended_at: log.ended_at,
+      duration_sec: log.duration_sec,
+      result: log.result,
+      events: log.events ? JSON.parse(log.events) : [],
+      created_at: log.created_at,
     }));
   }
 }

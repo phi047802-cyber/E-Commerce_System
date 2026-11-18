@@ -39,3 +39,28 @@ coverage/
 # Temporary debug tools
 debug_slices/
 mockup-front.jpg
+
+# Private Uploads & Encrypted Storage
+storage/kyc_encrypted/
+storage/
+uploads/
+uploads/private/
+log/
+
+# Browser automation profiles (may contain cookies/session data) — never commit
+temp_edge_*/
+# Local DB backups & ad-hoc artifacts
+prisma/*.db.backup
+audit_entries.json
+/screenshot-*.png
+
+# Flutter / Dart (mobile/)
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/ios/Pods/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/**/GeneratedPluginRegistrant.*

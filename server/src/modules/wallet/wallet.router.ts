@@ -53,6 +53,80 @@ walletRouter.get(
   })
 );
 
+// 2b. Xuất CSV Sổ cái cho Kiểm toán viên (Chống CSV Injection)
+walletRouter.get(
+  '/reconciliation/export-csv',
+  authorizeRoles('AUDITOR', 'ADMIN'),
+  asyncHandler(async (_req: Request, res: Response) => {
+    const transactions = await prisma.ledgerTransaction.findMany({
+      include: {
+        entries: {
+          include: {
+            wallet: {
+              include: {
+                user: { select: { display_name: true, email: true, role: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 200,
+    });
+
+    const sanitizeCell = (val: any): string => {
+      if (val === null || val === undefined) return '""';
+      let str = String(val).replace(/"/g, '""');
+      // Chống CSV injection: nếu ký tự đầu là =, +, -, @ thì chèn dấu nháy đơn '
+      if (/^[=+\-@]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str}"`;
+    };
+
+    const headers = [
+      'Mã Giao Dịch (Txn ID)',
+      'Loại Giao Dịch',
+      'Idempotency Key',
+      'Mã Booking',
+      'Mã Ví',
+      'Chủ Ví',
+      'Vai Trò',
+      'Loại Số Dư',
+      'Chiều Hạch Toán',
+      'Số Tiền (VND)',
+      'Số Dư Sau',
+      'Thời Gian Ghi Sổ',
+    ];
+
+    const rows: string[] = [headers.join(',')];
+
+    for (const txn of transactions) {
+      for (const entry of txn.entries) {
+        rows.push([
+          sanitizeCell(txn.txn_id),
+          sanitizeCell(txn.txn_type),
+          sanitizeCell(txn.idempotency_key),
+          sanitizeCell(txn.booking_id || 'N/A'),
+          sanitizeCell(entry.wallet_id),
+          sanitizeCell(entry.wallet.user?.display_name || entry.wallet_id),
+          sanitizeCell(entry.wallet.user?.role || 'SYSTEM'),
+          sanitizeCell(entry.balance_type),
+          sanitizeCell(entry.direction),
+          sanitizeCell(entry.amount),
+          sanitizeCell(entry.balance_after),
+          sanitizeCell(new Date(entry.created_at).toISOString()),
+        ].join(','));
+      }
+    }
+
+    const csvContent = '\uFEFF' + rows.join('\r\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="ledger-audit-${Date.now()}.csv"`);
+    res.status(200).send(csvContent);
+  })
+);
+
 // 3. Tra cứu ví theo userId — Bắt buộc phải là chính mình hoặc vai trò AUDITOR / ADMIN
 walletRouter.get(
   '/:userId',

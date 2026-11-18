@@ -1,7 +1,10 @@
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import { prisma } from '../../common/prisma.js';
-import { NotFoundError, BusinessError, ForbiddenError } from '../../common/errors.js';
+import { NotFoundError, BusinessError, ForbiddenError, ValidationError } from '../../common/errors.js';
 import { getVietnamDayKey, calculateSlotDurationHours } from '../../common/dateUtils.js';
-import { UpdateProfileInput, CreateSlotInput } from './companion.dto.js';
+import { UpdateProfileInput, CreateSlotInput, UploadVoiceIntroInput } from './companion.dto.js';
 import { env } from '../../config/env.js';
 
 export class CompanionService {
@@ -17,12 +20,40 @@ export class CompanionService {
             email: true,
             phone_number: true,
             status: true,
+            bio: true,
+            avatar_url: true,
           },
         },
       },
     });
 
     if (!profile) {
+      const user = await prisma.user.findUnique({ where: { user_id: userId } });
+      if (user && user.role === 'COMPANION') {
+        return prisma.companionProfile.create({
+          data: {
+            user_id: userId,
+            profile_status: 'INCOMPLETE',
+            availability: 'OFFLINE',
+            trust_score: 80.0,
+            verification_status: 'UNVERIFIED',
+          },
+          include: {
+            game: true,
+            tier: true,
+            user: {
+              select: {
+                display_name: true,
+                email: true,
+                phone_number: true,
+                status: true,
+                bio: true,
+                avatar_url: true,
+              },
+            },
+          },
+        });
+      }
       throw new NotFoundError('Tài khoản này chưa đăng ký hồ sơ Companion.');
     }
 
@@ -30,25 +61,108 @@ export class CompanionService {
   }
 
   async updateMyProfile(userId: string, input: UpdateProfileInput) {
-    const profile = await prisma.companionProfile.findUnique({
+    let profile = await prisma.companionProfile.findUnique({
       where: { user_id: userId },
     });
 
     if (!profile) {
-      throw new NotFoundError('Tài khoản này chưa đăng ký hồ sơ Companion.');
+      const user = await prisma.user.findUnique({ where: { user_id: userId } });
+      if (user && user.role === 'COMPANION') {
+        profile = await prisma.companionProfile.create({
+          data: {
+            user_id: userId,
+            profile_status: 'INCOMPLETE',
+            availability: 'OFFLINE',
+            trust_score: 80.0,
+            verification_status: 'UNVERIFIED',
+          },
+        });
+      } else {
+        throw new NotFoundError('Tài khoản này chưa đăng ký hồ sơ Companion.');
+      }
+    }
+
+    const targetGameId = input.game_id !== undefined ? input.game_id : profile.game_id;
+    const targetTierId = input.verified_tier_id !== undefined ? input.verified_tier_id : profile.verified_tier_id;
+    const targetRate = input.hourly_rate !== undefined ? input.hourly_rate : profile.hourly_rate;
+    const targetAccountId = input.game_account_id !== undefined ? input.game_account_id : profile.game_account_id;
+
+    // Kiểm tra game hợp lệ nếu được cập nhật
+    if (input.game_id) {
+      const gameExists = await prisma.gameCatalog.findUnique({
+        where: { game_id: input.game_id },
+      });
+      if (!gameExists || !gameExists.is_active) {
+        throw new BusinessError('GAME_NOT_FOUND', 'Tựa game được chọn không tồn tại hoặc đã ngừng hỗ trợ.');
+      }
+    }
+
+    // Kiểm tra rank tier hợp lệ và thuộc game đã chọn
+    if (targetTierId && targetGameId) {
+      const tier = await prisma.skillRankTier.findUnique({
+        where: { tier_id: targetTierId },
+      });
+      if (!tier || tier.game_id !== targetGameId) {
+        throw new BusinessError('INVALID_RANK_FOR_GAME', 'Bậc xếp hạng được chọn không thuộc tựa game này.');
+      }
+    } else if (input.verified_tier_id && !targetGameId) {
+      throw new BusinessError('GAME_REQUIRED_FOR_RANK', 'Vui lòng chọn tựa game trước khi chọn bậc xếp hạng.');
+    }
+
+    // Nếu đã có đầy đủ 4 thông tin thiết yếu: game_id, verified_tier_id, hourly_rate, game_account_id
+    const minRate = env.MIN_COMPANION_HOURLY_RATE || 30000;
+    const maxRate = env.MAX_COMPANION_HOURLY_RATE || 1000000;
+    if (input.hourly_rate !== undefined && (input.hourly_rate < minRate || input.hourly_rate > maxRate)) {
+      throw new BusinessError(
+        'INVALID_HOURLY_RATE',
+        `Đơn giá thuê phải nằm trong khoảng từ ${minRate.toLocaleString('vi-VN')} đến ${maxRate.toLocaleString('vi-VN')} VND/giờ.`
+      );
+    }
+
+    const isNowComplete = Boolean(
+      targetGameId &&
+      targetTierId &&
+      targetRate &&
+      targetRate >= minRate &&
+      targetRate <= maxRate &&
+      targetAccountId &&
+      targetAccountId.trim().length >= 2
+    );
+
+    const newProfileStatus = isNowComplete ? 'ACTIVE' : 'INCOMPLETE';
+
+    // Cập nhật bio trên User nếu có
+    if (input.bio !== undefined) {
+      await prisma.user.update({
+        where: { user_id: userId },
+        data: { bio: input.bio.trim() },
+      });
     }
 
     const updated = await prisma.companionProfile.update({
       where: { profile_id: profile.profile_id },
       data: {
-        hourly_rate: input.hourly_rate ?? profile.hourly_rate,
+        game_id: targetGameId,
+        verified_tier_id: targetTierId,
+        hourly_rate: targetRate,
         availability: input.availability ?? profile.availability,
-        game_account_id: input.game_account_id ?? profile.game_account_id,
+        game_account_id: targetAccountId,
+        profile_status: newProfileStatus,
         audio_bio_url: input.audio_bio_url !== undefined ? input.audio_bio_url : profile.audio_bio_url,
       },
       include: {
         game: true,
         tier: true,
+        user: {
+          select: {
+            display_name: true,
+            email: true,
+            phone_number: true,
+            status: true,
+            bio: true,
+            avatar_url: true,
+          },
+        },
       },
     });
 
@@ -84,6 +198,14 @@ export class CompanionService {
 
   async createSlot(userId: string, input: CreateSlotInput) {
     const profile = await this.getMyProfile(userId);
+
+    // Kiểm tra Companion đã hoàn thiện hồ sơ chưa (Section B.2)
+    if (profile.profile_status === 'INCOMPLETE') {
+      throw new BusinessError(
+        'PROFILE_INCOMPLETE',
+        'Vui lòng hoàn thiện hồ sơ (chọn game, rank, đơn giá và mã in-game) trước khi mở khung giờ rảnh.'
+      );
+    }
     const startTime = new Date(input.start_time);
     const endTime = new Date(input.end_time);
     const now = new Date();
@@ -184,6 +306,86 @@ export class CompanionService {
     });
 
     return { message: 'Đã xóa khung giờ thành công.' };
+  }
+
+  private isValidAudioMagicBytes(buffer: Buffer): boolean {
+    if (buffer.length < 4) return false;
+    // MP3 with ID3v2 container ("ID3")
+    if (buffer[0] === 0x49 && buffer[1] === 0x44 && buffer[2] === 0x33) return true;
+    // MP3 raw frame sync: 11 bits set (0xFF followed by 0xE0 or higher)
+    if (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0) return true;
+    // WebM / Matroska EBML header (0x1A 0x45 0xDF 0xA3)
+    if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) return true;
+    // OGG container ("OggS")
+    if (buffer[0] === 0x4f && buffer[1] === 0x67 && buffer[2] === 0x67 && buffer[3] === 0x53) return true;
+    // WAV container ("RIFF" ... "WAVE")
+    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return true;
+    return false;
+  }
+
+  async uploadVoiceIntro(userId: string, input: UploadVoiceIntroInput) {
+    const profile = await this.getMyProfile(userId);
+
+    // Chống path traversal: bóc tách phần mở rộng và kiểm tra tên tệp
+    if (input.file_name.includes('..') || input.file_name.includes('/') || input.file_name.includes('\\')) {
+      throw new ValidationError('Tên tệp không hợp lệ hoặc chứa ký tự chuyển hướng thư mục (Path traversal).');
+    }
+
+    const buffer = Buffer.from(input.file_content_base64, 'base64');
+
+    // 1. Kiểm tra dung lượng buffer thực tế (tối đa 2MB)
+    const MAX_SIZE = 2 * 1024 * 1024;
+    if (buffer.length > MAX_SIZE || input.file_size_bytes > MAX_SIZE) {
+      throw new ValidationError('Dung lượng tệp âm thanh vượt quá giới hạn tối đa 2MB.');
+    }
+
+    // 2. Chống tệp đuôi giả (Extension validation)
+    const lowerName = input.file_name.toLowerCase();
+    const validExtensions = ['.mp3', '.webm', '.wav', '.ogg'];
+    const matchedExt = validExtensions.find((e) => lowerName.endsWith(e));
+    if (!matchedExt) {
+      throw new ValidationError('Định dạng phần mở rộng tệp không được hỗ trợ hoặc tệp đuôi giả (chỉ hỗ trợ .mp3, .webm, .wav, .ogg).');
+    }
+
+    // 3. Kiểm tra magic bytes nội dung tệp thực tế
+    if (!this.isValidAudioMagicBytes(buffer)) {
+      throw new ValidationError('Nội dung tệp không phải định dạng âm thanh hợp lệ (Magic bytes không khớp MP3/WebM/WAV/OGG).');
+    }
+
+    const uploadDir = path.resolve(process.cwd(), 'uploads', 'audios');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Sinh tên tệp ngẫu nhiên chống trùng lặp và path traversal
+    const safeUuid = crypto.randomUUID();
+    const fileName = `voice-${safeUuid}${matchedExt}`;
+    const filePath = path.resolve(uploadDir, fileName);
+
+    // Đảm bảo đường dẫn tuyệt đối nằm trọn trong uploadDir
+    if (!filePath.startsWith(uploadDir)) {
+      throw new ValidationError('Đường dẫn lưu trữ tệp không an toàn.');
+    }
+
+    fs.writeFileSync(filePath, buffer);
+    try {
+      fs.chmodSync(filePath, 0o644); // Không có quyền thực thi (non-executable)
+    } catch {
+      // Bỏ qua trên hệ điều hành không hỗ trợ POSIX permissions
+    }
+
+    const audioUrl = `/uploads/audios/${fileName}`;
+    const updated = await prisma.companionProfile.update({
+      where: { profile_id: profile.profile_id },
+      data: { audio_bio_url: audioUrl },
+    });
+
+    return {
+      audio_bio_url: updated.audio_bio_url,
+      file_name: fileName,
+      file_size_bytes: buffer.length,
+      message: 'Tải lên ghi âm giới thiệu thành công.',
+    };
   }
 }
 

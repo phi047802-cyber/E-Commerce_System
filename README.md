@@ -42,7 +42,7 @@ Hệ thống giải quyết triệt để 3 vấn nạn nhức nhối nhất tro
 | **Frontend** | **React 18 + Vite + Tailwind CSS** | Khởi động tức thì, bundle tối ưu (73.78 kB gzip), giao diện người dùng chuyên nghiệp hỗ trợ 5 vai trò. |
 | **Cơ sở dữ liệu** | **SQLite 3 qua Prisma ORM** | **100% Zero-config**, không cần cài database daemon, tương thích chuyển đổi tức thì sang PostgreSQL. |
 | **Kênh Realtime** | **WebSocket Server (`ws`)** | Tích hợp trực tiếp vào Express HTTP server, không phụ thuộc dịch vụ trả phí bên thứ ba (Pusher/Firebase). |
-| **Kiểm thử** | **Vitest + Supertest** | 16 test suites, **160 tests PASS**, chạy song song trong ~20s, bao phủ trọn vẹn 70 Acceptance Tests WBS. |
+| **Kiểm thử** | **Vitest + Supertest** | 22 test suites, **228 tests PASS (100% GREEN)**, bao phủ trọn vẹn 70 Acceptance Tests WBS cùng các ca kiểm thử bảo mật nâng cao P0, eKYC AES-256-GCM, Anti-Enumeration, SiteVisit bot filtering/HMAC và Sổ cái kép. |
 | **Container hóa** | **Docker & Docker Compose** | Multi-stage build độc lập trên nền Linux Alpine, khởi chạy trọn gói bằng 1 lệnh duy nhất. |
 
 ---
@@ -98,20 +98,24 @@ chmod +x scripts/*.sh
 ### Cách 2: Thiết lập từng bước thủ công
 
 ```bash
-# 1. Cài đặt dependencies cho Backend và Frontend
-npm install
+# 1. Cài đặt dependencies cho Backend và Frontend (với cờ --ignore-scripts nếu môi trường Node 18.16)
+npm run setup
+
+# Hoặc thiết lập thủ công:
+npm install --ignore-scripts
 npm --prefix client install
-
-# 2. Tạo database SQLite và chạy migrations
 npx prisma generate
-npx prisma migrate dev --name init
-
-# 3. Nạp dữ liệu mẫu (Users, Games, Slots, Wallets)
+npx prisma migrate deploy
 npm run prisma:seed
 
-# 4. Khởi chạy ứng dụng song song
+# 2. Khởi chạy ứng dụng song song
 npm run dev
 ```
+
+> [!NOTE]
+> **Tương thích Node 18.16**: Script `npm run setup` cấu hình cờ `--ignore-scripts` để vượt qua kiểm tra phiên bản preinstall của Prisma 6 trên Node 18.16. Mã nguồn và Prisma Client chạy ổn định 100% trên cả Node 18, 20, 22 và 24.
+> 
+> **Triển khai sạch (Clean Clone)**: Chỉ cần chạy lệnh `npx prisma migrate deploy` để áp dụng toàn bộ 3 migration của dự án vào cơ sở dữ liệu SQLite mới mà không gặp bất kỳ lỗi thiếu bảng/cột nào.
 
 ### Cách 3: Khởi chạy bằng Docker
 
@@ -119,7 +123,7 @@ npm run dev
 docker compose up --build
 ```
 
-Ứng dụng sẽ tự động mở tại:
+Ứng dụng sẽ tự động chạy toàn bộ migrations, nạp seed data và mở tại:
 - **Frontend Web UI**: `http://localhost:5173`
 - **Backend API Server**: `http://localhost:4000` (Health check: `http://localhost:4000/api/health`)
 - **WebSocket Endpoint**: `ws://localhost:4000/ws`
@@ -128,25 +132,35 @@ docker compose up --build
 
 ## 7. Quy trình Kiểm thử Tự động (Automated Testing)
 
-Hệ thống sở hữu bộ kiểm thử tự động toàn diện gồm **160 test cases** thuộc **16 test files**:
+Hệ thống sở hữu bộ kiểm thử tự động toàn diện gồm **228 test cases** thuộc **22 test files** (18 integration test suites với 187 tests, 3 unit test suites với 29 tests):
 
 ```bash
-# Chạy toàn bộ 160 ca kiểm thử tự động
+# Chạy toàn bộ 228 ca kiểm thử tự động
 npm test
 
 # Chạy riêng nhóm Unit Tests & Bất biến bảo toàn tiền tệ (29 tests)
 npx vitest run tests/unit
 
-# Chạy riêng nhóm Integration Tests & Kiểm thử bảo mật xâm nhập (131 tests)
+# Chạy riêng nhóm Integration Tests & Kiểm thử bảo mật (187 tests)
 npx vitest run tests/integration
 ```
+
+---
+
+## 8. Quy định thống nhất giới hạn Upload dữ liệu & Đệm Base64 qua JSON
+
+Hệ thống thống nhất quy định kích thước tệp tải lên của người dùng trên toàn bộ các tài liệu và API:
+- **Âm thanh giới thiệu Companion (`audio_intro`)**: $\le 2$MB (định dạng `audio/webm`, `audio/mp3`, `audio/ogg`).
+- **File ảnh bằng chứng khiếu nại RMA (`evidence_file`)**: $\le 2$MB (định dạng `image/jpeg`, `image/png`, `image/webp`).
+- **Mỗi ảnh giấy tờ tùy thân eKYC (`front`, `back`, `selfie`)**: $\le 2$MB/ảnh.
+- **Cơ chế đệm HTTP Body Base64 (3MB và 10MB)**: Do mã hóa Base64 qua JSON làm tăng $\approx 33.3\%$ kích thước tệp nhị phân gốc, router Express cấu hình giới hạn sơ bộ `limit: '3mb'` (cho audio và ảnh khiếu nại) và `limit: '10mb'` (cho gói 3 ảnh eKYC) để tiếp nhận an toàn trước khi giải mã và kiểm tra dung lượng thật $\le 2$MB.
 
 > [!NOTE]
 > Báo cáo kiểm thử độc lập chi tiết về kết quả từng nhóm được lưu trữ tại [`docs/QA_REPORT.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/QA_REPORT.md).
 
 ---
 
-## 8. Danh sách tài khoản thử nghiệm có sẵn (Demo Seed Accounts)
+## 9. Danh sách tài khoản thử nghiệm có sẵn (Demo Seed Accounts)
 
 > [!IMPORTANT]
 > **Lưu ý bảo mật**: Toàn bộ tài khoản dưới đây là **tài khoản minh họa giả lập (Illustrative Mock Accounts)** phục vụ môi trường demo học thuật cục bộ. Không sử dụng mật khẩu này cho bất kỳ hệ thống sản xuất thực tế nào.
@@ -165,7 +179,16 @@ npx vitest run tests/integration
 
 ---
 
-## 9. Xử lý sự cố thường gặp (Troubleshooting)
+## 10. Hai con số tổng kết đối chiếu tham chiếu vận hành (Playerduo & Lita)
+
+Theo [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md), hệ thống tách bạch rõ ràng ba phương diện đối chiếu chuẩn hóa (28 dòng REF):
+1. **Mức hoàn thiện triển khai (28 dòng REF)**: **25 dòng ĐẦY ĐỦ (89.3%)**, **2 dòng MỘT PHẦN (7.1%)** (`REF-CHAT-01`, `REF-TAX-01`), **1 dòng CHƯA CÓ / CHƯA ĐÁP ỨNG (3.6%)** (`REF-AUTH-03` – Google OAuth2), **0 dòng thiếu ngoài tầm kiểm soát**.
+2. **Độ chính xác tài liệu tham chiếu (28 dòng REF)**: **24 dòng KHỚP (85.7%)**, **3 dòng KHÁC NGUỒN (10.7%)** (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`), **1 dòng CHƯA KIỂM CHỨNG ĐƯỢC (3.6%)** (Ảnh Lita nút Nạp Xu `REF-TOPUP-01` chưa có tệp trên đĩa).
+3. **Phân loại theo Loại thiết kế (28 dòng REF)**: **23 dòng LẤY THEO NGUỒN (82.1%)**, **2 dòng NHÓM PHÁT TRIỂN THÊM (7.1%)** (`REF-TOPUP-03`, `REF-TOPUP-05`), **3 dòng KHÁC NGUỒN (10.7%)** (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`).
+
+---
+
+## 11. Xử lý sự cố thường gặp (Troubleshooting)
 
 1. **Lỗi `EADDRINUSE: address already in use :::4000` hoặc `:::5173`**:
    - Cổng 4000 hoặc 5173 đang bị tiến trình khác chiếm giữ.
@@ -186,7 +209,7 @@ npx vitest run tests/integration
 
 ---
 
-## 10. Giới hạn học thuật & Ranh giới phạm vi (Scope Limitations)
+## 12. Giới hạn học thuật & Ranh giới phạm vi (Scope Limitations)
 
 Dự án được xây dựng dưới dạng sản phẩm đồ án sinh viên đại học với mục tiêu chứng minh kiến trúc kỹ thuật và giải pháp an toàn tài chính. Để bảo đảm **100% miễn phí** và **chạy local độc lập**, các ranh giới học thuật được xác lập như sau:
 
@@ -194,3 +217,4 @@ Dự án được xây dựng dưới dạng sản phẩm đồ án sinh viên �
 2. **Kênh trao đổi phiên chơi**: Triển khai chat văn bản thời gian thực qua WebSocket cục bộ có bộ lọc regex kiểm duyệt từ khóa nhạy cảm. Không triển khai gọi thoại WebRTC hoặc streaming video đám mây (tránh chi phí hạ tầng STUN/TURN server).
 3. **Hạ tầng phân tán**: Sử dụng khóa giao dịch nguyên tử trong Cơ sở dữ liệu (`prisma.$transaction`) để giải quyết bài toán chống đặt trùng slot. Không triển khai cụm Redis hoặc Apache Kafka phân tán.
 4. **Hàng hóa vật lý**: Hệ thống là sàn giao dịch dịch vụ số C2C thuần túy, hoàn toàn không có thực thể kho bãi, giỏ hàng nhiều món hay phí vận chuyển giao nhận (theo Quy tắc BR-27).
+5. **Đăng nhập mạng xã hội Google OAuth2 (FR-001)**: **FR-001 OAuth2: CHƯA ĐÁP ỨNG**. Lý do: Môi trường đánh giá học thuật cục bộ chạy Node.js v18.16.0 (thư viện chính thức `google-auth-library@11` yêu cầu Node.js $\ge 22$), thiếu thông tin định danh `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` từ Google Cloud Console và thiếu tên miền public SSL. Phía backend chưa triển khai endpoint xác thực chữ ký số ID token RSA-256 từ Google JWKS. Giao diện client chủ động không kích hoạt nút này nhằm bảo đảm an toàn. Hướng bổ sung: Nâng cấp Node runtime $\ge 22$, đăng ký GCP Console, cài đặt `google-auth-library` tại server để xác minh ID token (`audience`, `email_verified`), tự động liên kết/tạo tài khoản và cấp phát JWT token sàn.

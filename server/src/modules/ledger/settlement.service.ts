@@ -8,6 +8,7 @@ import {
 import { ledgerService } from './ledger.service.js';
 import { SYSTEM_ACCOUNTS } from './ledger.types.js';
 import { logger } from '../../common/logger.js';
+import { userMessages } from '../../common/messages.vi.js';
 
 export class SettlementService {
   /**
@@ -101,7 +102,14 @@ export class SettlementService {
 
     const totalFee = booking.total_fee_snapshot;
     const platformFee = Math.floor(totalFee * 0.12);
-    const companionFee = totalFee - platformFee; // Bảo toàn số nguyên VND tuyệt đối
+    const standardCompanionFee = totalFee - platformFee; // Bảo toàn số nguyên VND tuyệt đối
+
+    // D22: [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định]
+    // Cấn trừ nợ phạt (penalty_debt) nếu Companion còn nợ phạt từ các khiếu nại trước
+    const penaltyDebt = companionWallet.penalty_debt || 0;
+    const penaltyOffset = Math.min(penaltyDebt, standardCompanionFee);
+    const companionFee = standardCompanionFee - penaltyOffset;
+    const totalPlatformCredit = platformFee + penaltyOffset;
 
     try {
       return await prisma.$transaction(async (tx) => {
@@ -147,24 +155,41 @@ export class SettlementService {
                 wallet_id: SYSTEM_ACCOUNTS.PLATFORM_REVENUE_WALLET_ID,
                 direction: 'CREDIT',
                 balance_type: 'AVAILABLE',
-                amount: platformFee,
+                amount: totalPlatformCredit,
               },
             ],
           },
           tx
         );
 
-        if (platformFee > 0 && !ledgerTx.is_idempotent_replay) {
+        // D22: Trừ nợ phạt trong ví Companion nếu có cấn trừ
+        if (penaltyOffset > 0) {
+          await tx.wallet.update({
+            where: { wallet_id: companionWallet.wallet_id },
+            data: {
+              penalty_debt: { decrement: penaltyOffset },
+            },
+          });
+          logger.info(`[D22] Offset ${penaltyOffset} VND penalty debt for companion ${companionWallet.user_id}`);
+        }
+
+        if (totalPlatformCredit > 0 && !ledgerTx.is_idempotent_replay) {
           await tx.platformRevenue.upsert({
             where: { txn_id: ledgerTx.transaction.txn_id },
             update: {},
             create: {
               txn_id: ledgerTx.transaction.txn_id,
-              amount: platformFee,
+              amount: totalPlatformCredit,
               commission_rate: 0.12,
             },
           });
         }
+
+        // D26: Cập nhật SettlementRetryQueue sang SUCCESS nếu có hàng đợi thử lại
+        await tx.settlementRetryQueue.updateMany({
+          where: { booking_id: bookingId },
+          data: { status: 'SUCCESS' },
+        });
 
         // 3. Cập nhật trạng thái Escrow sang RELEASED
         await tx.escrow.update({
@@ -185,9 +210,12 @@ export class SettlementService {
 
         // 5. Ghi nhận BOOKING_STATUS_HISTORY
         const isAutoTimeout = triggerReason === 'SYSTEM_AUTO_ACCEPT_TIMEOUT';
+        const offsetNote = penaltyOffset > 0
+          ? ` (Đã cấn trừ ${penaltyOffset.toLocaleString('vi-VN')} VND nợ vi phạm, còn nợ: ${(penaltyDebt - penaltyOffset).toLocaleString('vi-VN')} VND)`
+          : '';
         const historyReason = isAutoTimeout
-          ? `[DEMO_POLICY — APPROVED] SYSTEM_AUTO_ACCEPT_TIMEOUT: Tự động nghiệm thu sau 15 phút im lặng. Giải ngân 88% (${companionFee.toLocaleString('vi-VN')} VND) cho Companion và 12% (${platformFee.toLocaleString('vi-VN')} VND) cho Sàn.`
-          : `Renter xác nhận hoàn tất: Giải ngân 88% (${companionFee.toLocaleString('vi-VN')} VND) cho Companion và 12% (${platformFee.toLocaleString('vi-VN')} VND) cho Sàn. Lý do: ${triggerReason}`;
+          ? `Tự động nghiệm thu sau 15 phút kết thúc phiên. Giải ngân ${companionFee.toLocaleString('vi-VN')}đ cho Companion${offsetNote}.`
+          : `Renter xác nhận hoàn tất: Giải ngân ${companionFee.toLocaleString('vi-VN')}đ cho Companion${offsetNote}.`;
 
         await tx.bookingStatusHistory.create({
           data: {
@@ -195,26 +223,30 @@ export class SettlementService {
             from_status: booking.status,
             to_status: 'COMPLETED',
             reason: historyReason,
-            changed_by: actorId || null,
+            changed_by: (actorId && actorId !== 'SYSTEM') ? actorId : null,
           },
         });
 
         // 6. Gửi thông báo in-app
+        const notifCompanion = userMessages.escrowReleasedToCompanion(booking.booking_id, companionFee, penaltyOffset);
         await tx.notification.create({
           data: {
             user_id: booking.companion.user_id,
-            title: 'Giải ngân dịch vụ thành công',
-            message: `Đơn đặt lịch đã nghiệm thu thành công. Bạn nhận được ${companionFee.toLocaleString('vi-VN')} VND vào ví khả dụng.`,
-            type: 'ESCROW_RELEASED',
+            title: notifCompanion.title,
+            message: notifCompanion.message,
+            type: notifCompanion.type,
+            target_url: notifCompanion.target_url,
           },
         });
 
+        const notifRenter = userMessages.bookingCompletedToRenter(booking.booking_id);
         await tx.notification.create({
           data: {
             user_id: booking.renter_id,
-            title: 'Đơn đặt lịch hoàn tất',
-            message: `Đơn đặt lịch đã hoàn tất nghiệm thu. Cảm ơn bạn đã sử dụng dịch vụ INSTASQUAD!`,
-            type: 'BOOKING_COMPLETED',
+            title: notifRenter.title,
+            message: notifRenter.message,
+            type: notifRenter.type,
+            target_url: notifRenter.target_url,
           },
         });
 
@@ -228,7 +260,8 @@ export class SettlementService {
           settlement: {
             total_fee: totalFee,
             companion_received: companionFee,
-            platform_fee: platformFee,
+            penalty_offset: penaltyOffset,
+            platform_fee: totalPlatformCredit,
             escrow_status: 'RELEASED',
           },
           is_idempotent_replay: false,
@@ -253,6 +286,35 @@ export class SettlementService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Đưa đơn giải ngân lỗi vào hàng đợi thử lại (D26: [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định])
+   * Tối đa 3 lần sau 1, 5, 15 phút với CÙNG idempotency_key
+   */
+  async queueSettlementRetry(bookingId: string, errorMsg: string, clock?: Date) {
+    const now = clock || new Date();
+    const existing = await prisma.settlementRetryQueue.findUnique({
+      where: { booking_id: bookingId },
+    });
+
+    if (!existing) {
+      // Lần thử 1: Sau 1 phút
+      const nextRetry = new Date(now.getTime() + 1 * 60 * 1000);
+      return await prisma.settlementRetryQueue.create({
+        data: {
+          booking_id: bookingId,
+          attempts: 0,
+          max_attempts: 3,
+          next_retry_at: nextRetry,
+          idempotency_key: `SETTLE-BOOKING-${bookingId}`,
+          last_error: errorMsg,
+          status: 'PENDING',
+        },
+      });
+    }
+
+    return existing;
   }
 }
 

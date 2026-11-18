@@ -16,7 +16,7 @@ export const reportIssueSchema = z.object({
 export type ReportIssueInput = z.infer<typeof reportIssueSchema>;
 
 export const autoAcceptSchema = z.object({
-  simulated_now: z.string().datetime().optional(),
-});
+  simulated_now: z.string().optional(),
+}).passthrough();
 
 export type AutoAcceptInput = z.infer<typeof autoAcceptSchema>;

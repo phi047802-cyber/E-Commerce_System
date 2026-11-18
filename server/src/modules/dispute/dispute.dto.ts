@@ -22,9 +22,39 @@ export const resolveDisputeSchema = z.object({
 
 export type ResolveDisputeInput = z.infer<typeof resolveDisputeSchema>;
 
-export const requestEvidenceSchema = z.object({
-  notes: z.string().trim().min(5, 'Ghi chú yêu cầu bổ sung chứng cứ tối thiểu 5 ký tự').max(1000),
-  deadline_hours: z.number().int().positive().default(24),
-});
+export const requestEvidenceSchema = z
+  .object({
+    notes: z.string().trim().min(5, "Trường 'notes' không được để trống và phải có ít nhất 5 ký tự").max(1000).optional(),
+    request_note: z.string().trim().min(5, "Trường 'request_note' phải có ít nhất 5 ký tự").max(1000).optional(),
+    deadline_hours: z.coerce
+      .number()
+      .int('Thời hạn bổ sung chứng cứ phải là số nguyên giờ')
+      .min(1, 'Thời hạn tối thiểu là 1 giờ')
+      .max(168, 'Thời hạn tối đa là 168 giờ (7 ngày)')
+      .default(24),
+  })
+  .refine((data) => !!(data.notes || data.request_note), {
+    message: "Trường 'notes' (hoặc 'request_note') không được để trống và phải có ít nhất 5 ký tự",
+    path: ['notes'],
+  })
+  .transform((data) => ({
+    notes: (data.notes || data.request_note || '').trim(),
+    deadline_hours: data.deadline_hours,
+  }));
 
 export type RequestEvidenceInput = z.infer<typeof requestEvidenceSchema>;
+
+export const companionExplanationSchema = z.object({
+  explanation: z.string().trim().min(5, 'Nội dung giải trình là bắt buộc và phải có ít nhất 5 ký tự').max(2000, 'Nội dung giải trình tối đa 2000 ký tự'),
+  file_type: z.enum(['IMAGE_PNG', 'IMAGE_JPEG', 'IMAGE_WEBP', 'LOG_TEXT'], {
+    errorMap: () => ({
+      message: 'Định dạng tệp không được hỗ trợ. Chỉ chấp nhận IMAGE_PNG, IMAGE_JPEG, IMAGE_WEBP, LOG_TEXT.',
+    }),
+  }).optional(),
+  file_url: z.string().optional(),
+  file_content_base64: z.string().optional(),
+  file_name: z.string().optional(),
+  file_size_bytes: z.number().max(2 * 1024 * 1024, 'Kích thước tệp không được vượt quá 2MB').optional(),
+});
+
+export type CompanionExplanationInput = z.infer<typeof companionExplanationSchema>;

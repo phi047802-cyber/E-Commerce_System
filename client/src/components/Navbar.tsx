@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Gamepad2, 
   Search, 
@@ -6,16 +6,22 @@ import {
   Wallet, 
   LogOut, 
   RotateCcw,
-  Menu,
-  X
+  Menu, 
+  X,
+  ChevronDown,
+  User,
+  ShieldAlert,
+  BarChart3,
+  CreditCard
 } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: any;
   onLoginClick: () => void;
+  onRegisterClick: () => void;
   onLogout: () => void;
   onTopupClick: () => void;
-  activeTab: 'catalog' | 'companion_dashboard' | 'cs_view' | 'auditor_view';
+  activeTab: 'catalog' | 'companion_dashboard' | 'cs_view' | 'auditor_view' | 'admin_dashboard' | 'admin_bookings' | 'profile';
   setActiveTab: (tab: any) => void;
   health: any;
   onResetDemoClick: () => void;
@@ -28,6 +34,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onLoginClick,
+  onRegisterClick,
   onLogout,
   onTopupClick,
   activeTab,
@@ -40,107 +47,104 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveMenu,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const isDevMode = 
+    import.meta.env.DEV || 
+    (typeof window !== 'undefined' && (window.location.search.includes('dev=1') || window.location.search.includes('demo=1')));
 
   const navMenuItems = [
     { id: 'home', label: 'Trang chủ', href: '#home' },
     { id: 'find-team', label: 'Tìm đồng đội', href: '#games' },
     { id: 'companions', label: 'Companion', href: '#companions' },
     { id: 'games', label: 'Game', href: '#games' },
-    { id: 'reviews', label: 'Đánh giá', href: '#reviews' },
+    { id: 'community', label: 'Cộng đồng', href: '#community' },
+    { id: 'reviews', label: 'Đánh giá', href: '#community' },
     { id: 'about', label: 'Về chúng tôi', href: '#why-us' },
   ];
 
-  return (
-    <header className="sticky top-0 z-50 glass-nav transition-all">
-      {/* Top Banner Bar for DB & Demo Controls */}
-      <div className="bg-[#0e0e24] border-b border-white/5 py-1 px-4 text-[11px] text-slate-400">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className={`w-2 h-2 rounded-full ${health?.database === 'CONNECTED' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`} />
-            <span>Hệ thống: <strong className={health?.database === 'CONNECTED' ? 'text-emerald-400' : 'text-rose-400'}>{health?.database === 'CONNECTED' ? 'Hoạt động bình thường' : 'Mất kết nối'}</strong></span>
-            <span className="hidden sm:inline text-white/20">|</span>
-            <span className="hidden sm:inline text-purple-400 font-medium">Bảo vệ Ký quỹ Escrow 100% & Sổ cái kép</span>
-          </div>
+  const getRoleBadgeStyle = (role: string) => {
+    switch (role) {
+      case 'RENTER':
+        return 'bg-[#1C1C1C] text-[#A3A3A3] border-[#2A2A2A]';
+      case 'COMPANION':
+        return 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30';
+      case 'CS_AGENT':
+        return 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30';
+      case 'AUDITOR':
+      case 'ADMIN':
+        return 'bg-[#E11D2E]/10 text-[#E11D2E] border-[#E11D2E]/30';
+      default:
+        return 'bg-[#1C1C1C] text-white border-[#2A2A2A]';
+    }
+  };
 
-          <div className="flex items-center space-x-3">
-            {/* Quick Role Navigation */}
-            <div className="hidden md:flex items-center space-x-1">
+  return (
+    <header className="sticky top-0 z-50 bg-[#0A0A0A]/95 backdrop-blur border-b border-[#2A2A2A] transition-all">
+      {/* 1. Dev / Admin System Bar (Single compact line, only when DEV or ?dev=1) */}
+      {isDevMode && (
+        <div className="bg-[#000000] border-b border-[#2A2A2A] py-1 px-2.5 sm:px-4 text-[10px] sm:text-[11px] text-[#6B6B6B]">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2 truncate">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${health?.database === 'CONNECTED' ? 'bg-[#22C55E]' : 'bg-[#E11D2E]'}`} />
+              <span className="truncate"><strong className={health?.database === 'CONNECTED' ? 'text-[#22C55E]' : 'text-[#E11D2E]'}>{health?.database === 'CONNECTED' ? 'Online' : 'Offline'}</strong></span>
+              <span className="hidden sm:inline text-[#2A2A2A]">|</span>
+              <span className="hidden sm:inline text-[#A3A3A3]">Ký quỹ Escrow & Sổ cái kép</span>
+            </div>
+
+            <div className="flex items-center space-x-2 flex-shrink-0">
               <button
-                onClick={() => setActiveTab('catalog')}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                  activeTab === 'catalog' ? 'bg-purple-600 text-white shadow-glow-purple' : 'text-slate-400 hover:text-white'
-                }`}
+                onClick={onResetDemoClick}
+                className="flex items-center gap-1 text-[10px] text-[#A3A3A3] hover:text-white bg-[#141414] hover:bg-[#1C1C1C] border border-[#2A2A2A] px-2 py-0.5 rounded transition cursor-pointer whitespace-nowrap"
+                title="Khôi phục cơ sở dữ liệu về trạng thái mẫu ban đầu"
               >
-                Trang chủ / Sàn
+                <RotateCcw className="w-2.5 h-2.5" />
+                <span>[MOCK] Reset DB</span>
               </button>
-              {currentUser?.role === 'COMPANION' && (
+              {currentUser && (
                 <button
-                  onClick={() => setActiveTab('companion_dashboard')}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                    activeTab === 'companion_dashboard' ? 'bg-purple-600 text-white shadow-glow-purple' : 'text-slate-400 hover:text-white'
-                  }`}
+                  onClick={onLogout}
+                  className="text-[10px] text-[#E11D2E] hover:underline cursor-pointer whitespace-nowrap"
                 >
-                  Lịch & Hồ sơ Companion
-                </button>
-              )}
-              {(currentUser?.role === 'CS_AGENT' || currentUser?.role === 'ADMIN') && (
-                <button
-                  onClick={() => setActiveTab('cs_view')}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                    activeTab === 'cs_view' ? 'bg-purple-600 text-white shadow-glow-purple' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Quản lý CS / Rút tiền
-                </button>
-              )}
-              {currentUser?.role === 'AUDITOR' && (
-                <button
-                  onClick={() => setActiveTab('auditor_view')}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
-                    activeTab === 'auditor_view' ? 'bg-purple-600 text-white shadow-glow-purple' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Kiểm toán Sổ cái
+                  Đăng xuất
                 </button>
               )}
             </div>
-
-            <button
-              onClick={onResetDemoClick}
-              className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 px-2 py-0.5 rounded-md transition"
-              title="Khôi phục dữ liệu mẫu ban đầu"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>[MOCK] Reset DB</span>
-            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Main Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        {/* Brand Logo */}
+      {/* 2. Main Navigation Bar */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 h-16 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Brand Logo: INSTASQUAD with white INSTA and red SQUAD */}
         <div 
           onClick={() => { setActiveTab('catalog'); setActiveMenu('home'); }}
-          className="flex items-center space-x-2.5 cursor-pointer select-none group flex-shrink-0"
+          className="flex items-center space-x-2 sm:space-x-2.5 cursor-pointer select-none flex-shrink-0"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-700 via-purple-600 to-pink-500 p-0.5 shadow-glow-purple group-hover:scale-105 transition-transform duration-200">
-            <div className="w-full h-full bg-[#0A0A1F] rounded-[10px] flex items-center justify-center">
-              <Gamepad2 className="w-5 h-5 text-purple-400 group-hover:text-pink-400 transition-colors" />
-            </div>
+          <div className="w-8 h-8 rounded-lg bg-[#E11D2E] flex items-center justify-center">
+            <Gamepad2 className="w-4 h-4 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-lg tracking-wider text-white flex items-center gap-1">
-              INSTA<span className="text-gradient-purple">SQUAD</span>
-            </span>
-            <span className="text-[9px] uppercase tracking-widest text-slate-400 -mt-1 font-semibold">
-              Game Companion
+            <span className="font-bold text-base sm:text-lg tracking-wider text-white flex items-center">
+              INSTA<span className="text-[#E11D2E]">SQUAD</span>
             </span>
           </div>
         </div>
 
-        {/* Desktop Menu */}
-        <nav className="hidden lg:flex items-center space-x-6 text-sm font-medium">
+        {/* Public Desktop Menu: Underline active tab in red #E11D2E */}
+        <nav className="hidden lg:flex items-center space-x-6 text-xs font-medium">
           {navMenuItems.map((item) => {
             const isActive = activeMenu === item.id;
             return (
@@ -152,12 +156,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   if (activeTab !== 'catalog') setActiveTab('catalog');
                 }}
                 className={`relative py-1 transition-colors duration-200 ${
-                  isActive ? 'text-white font-semibold' : 'text-slate-300 hover:text-white'
+                  isActive ? 'text-white font-bold' : 'text-[#A3A3A3] hover:text-white'
                 }`}
               >
                 {item.label}
                 {isActive && (
-                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-purple-500 to-pink-500 rounded-full animate-fade-in shadow-glow-purple" />
+                  <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#E11D2E] rounded-full" />
                 )}
               </a>
             );
@@ -170,123 +174,233 @@ export const Navbar: React.FC<NavbarProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm game, tên người chơi..."
-            className="w-full bg-[#15152E]/90 border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all shadow-inner"
+            placeholder="Tìm game, companion..."
+            className="w-full bg-[#1C1C1C] border border-[#2A2A2A] rounded-full py-1.5 pl-9 pr-4 text-xs text-white placeholder-[#6B6B6B] focus:outline-none focus:border-[#E11D2E] transition-all"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 text-[#6B6B6B] absolute left-3 top-2.5 pointer-events-none" />
         </div>
 
-        {/* Right Section: Notifications & User Profile */}
-        <div className="flex items-center space-x-3">
-          {/* Notification Bell */}
-          <button 
-            className="relative p-2 rounded-full bg-[#15152E] hover:bg-[#1f1f42] text-slate-300 hover:text-white border border-white/10 transition"
-            title="Thông báo"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-pink-500 rounded-full ring-2 ring-[#0A0A1F]" />
-          </button>
-
-          {/* User state */}
+        {/* Right Section: Conditional based on Login status */}
+        <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
           {currentUser ? (
+            /* Khi ĐÃ ĐĂNG NHẬP */
             <div className="flex items-center space-x-2.5">
-              {/* Wallet Pill */}
+              {/* Notification Bell with red dot */}
+              <button 
+                className="relative p-2 rounded-full bg-[#141414] hover:bg-[#1C1C1C] text-[#A3A3A3] hover:text-white border border-[#2A2A2A] transition cursor-pointer"
+                title="Thông báo hệ thống"
+              >
+                <Bell className="w-4 h-4" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#E11D2E] rounded-full ring-2 ring-[#0A0A0A]" />
+              </button>
+
+              {/* Wallet Pill: HIỂN THỊ SỐ DƯ THẬT */}
               <div 
                 onClick={onTopupClick}
-                className="flex items-center space-x-2 bg-[#15152E] hover:bg-[#1c1c3d] border border-purple-500/30 px-3 py-1.5 rounded-full cursor-pointer transition shadow-sm group"
-                title="Bấm để nạp thêm số dư ví"
+                className="flex items-center space-x-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#2A2A2A] px-3 py-1.5 rounded-full cursor-pointer transition select-none"
+                title="Bấm để mở nạp tiền ví"
               >
-                <Wallet className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-bold text-emerald-400">
-                  {currentUser.wallet?.available_balance?.toLocaleString('vi-VN')} đ
+                <Wallet className="w-3.5 h-3.5 text-[#22C55E]" />
+                <span className="text-xs font-bold text-[#22C55E]">
+                  {currentUser.wallet?.available_balance?.toLocaleString('vi-VN') || 0} đ
                 </span>
-                <span className="text-[10px] text-purple-300 bg-purple-950/60 px-1.5 py-0.2 rounded-full border border-purple-700/50">
+                <span className="text-[10px] text-white bg-[#E11D2E] px-1.5 py-0.2 rounded-full">
                   +
                 </span>
               </div>
 
-              {/* User Dropdown / Avatar */}
-              <div className="flex items-center space-x-2 bg-[#15152E] border border-white/10 rounded-full pl-2 pr-1.5 py-1">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-600 to-pink-500 p-0.5 flex-shrink-0">
-                  <div className="w-full h-full rounded-full bg-[#12122A] flex items-center justify-center font-bold text-xs text-white uppercase">
+              {/* User Avatar + Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                  className="flex items-center space-x-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#2A2A2A] rounded-full pl-1.5 pr-2.5 py-1 transition select-none cursor-pointer"
+                >
+                  <div className="w-7 h-7 rounded-full bg-[#E11D2E] p-0.5 flex-shrink-0 flex items-center justify-center font-bold text-xs text-white uppercase">
                     {currentUser.display_name?.charAt(0) || 'U'}
                   </div>
-                </div>
-                <div className="hidden xl:flex flex-col text-left pr-2">
-                  <span className="text-xs font-semibold text-white leading-tight truncate max-w-[100px]">
-                    {currentUser.display_name}
-                  </span>
-                  <span className="text-[10px] text-purple-400 font-mono leading-none">
-                    {currentUser.role}
-                  </span>
-                </div>
-                <button
-                  onClick={onLogout}
-                  className="p-1.5 text-slate-400 hover:text-rose-400 rounded-full hover:bg-white/5 transition"
-                  title="Đăng xuất"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <div className="hidden sm:flex flex-col text-left pr-1">
+                    <span className="text-xs font-semibold text-white leading-tight truncate max-w-[110px]">
+                      {currentUser.display_name}
+                    </span>
+                    <span className={`text-[9px] font-bold px-1 rounded mt-0.5 border ${getRoleBadgeStyle(currentUser.role)}`}>
+                      {currentUser.role}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3 h-3 text-[#A3A3A3]" />
                 </button>
+
+                {/* Dropdown Menu */}
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl bg-[#141414] border border-[#2A2A2A] shadow-2xl p-2 z-50 divide-y divide-[#2A2A2A]">
+                    {/* Header info */}
+                    <div className="px-3 py-2.5">
+                      <p className="text-xs font-bold text-white truncate">{currentUser.display_name}</p>
+                      <p className="text-[10px] text-[#A3A3A3] truncate mt-0.5">{currentUser.email}</p>
+                      <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                        <span className="text-[#A3A3A3]">Khả dụng:</span>
+                        <span className="font-bold text-[#22C55E]">{currentUser.wallet?.available_balance?.toLocaleString('vi-VN')} đ</span>
+                      </div>
+                    </div>
+
+                    {/* Navigation Links inside dropdown */}
+                    <div className="py-1 space-y-0.5 text-xs font-medium text-[#A3A3A3]">
+                      <button
+                        onClick={() => {
+                          setActiveTab('catalog');
+                          setUserDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition text-left cursor-pointer ${
+                          activeTab === 'catalog' ? 'bg-[#E11D2E] text-white font-semibold' : 'hover:bg-[#1C1C1C] hover:text-white'
+                        }`}
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        <span>Trang chủ & Sàn</span>
+                      </button>
+
+                      {currentUser.role === 'COMPANION' && (
+                        <button
+                          onClick={() => {
+                            setActiveTab('companion_dashboard');
+                            setUserDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition text-left cursor-pointer ${
+                            activeTab === 'companion_dashboard' ? 'bg-[#E11D2E] text-white font-semibold' : 'hover:bg-[#1C1C1C] hover:text-white'
+                          }`}
+                        >
+                          <Gamepad2 className="w-3.5 h-3.5" />
+                          <span>Lịch & Hồ sơ Companion</span>
+                        </button>
+                      )}
+
+                      {(currentUser.role === 'CS_AGENT' || currentUser.role === 'ADMIN') && (
+                        <button
+                          onClick={() => {
+                            setActiveTab('cs_view');
+                            setUserDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition text-left cursor-pointer ${
+                            activeTab === 'cs_view' ? 'bg-[#E11D2E] text-white font-semibold' : 'hover:bg-[#1C1C1C] hover:text-white'
+                          }`}
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <span>Quản lý CS / RMA</span>
+                        </button>
+                      )}
+
+                      {(currentUser.role === 'AUDITOR' || currentUser.role === 'ADMIN') && (
+                        <button
+                          onClick={() => {
+                            setActiveTab('auditor_view');
+                            setUserDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition text-left cursor-pointer ${
+                            activeTab === 'auditor_view' ? 'bg-[#E11D2E] text-white font-semibold' : 'hover:bg-[#1C1C1C] hover:text-white'
+                          }`}
+                        >
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          <span>Kiểm toán Sổ cái</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          onTopupClick();
+                          setUserDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-[#1C1C1C] hover:text-white transition text-left cursor-pointer"
+                      >
+                        <CreditCard className="w-3.5 h-3.5 text-[#22C55E]" />
+                        <span>Nạp tiền vào ví</span>
+                      </button>
+                    </div>
+
+                    {/* Logout */}
+                    <div className="pt-1">
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          onLogout();
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#E11D2E] hover:bg-[#E11D2E]/10 transition text-left cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
+            /* Khi CHƯA ĐĂNG NHẬP: Nút Đăng nhập (viền xám) + Đăng ký (nền đỏ đặc #E11D2E) */
             <div className="flex items-center space-x-2">
               <button
                 onClick={onLoginClick}
-                className="text-xs font-semibold text-slate-200 hover:text-white px-3 py-2 rounded-xl transition"
+                className="px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-white bg-transparent hover:bg-[#1C1C1C] border border-[#2A2A2A] rounded-lg transition-colors cursor-pointer"
               >
                 Đăng nhập
               </button>
               <button
-                onClick={onLoginClick}
-                className="text-xs font-semibold text-white bg-gradient-primary hover:opacity-95 px-4 py-2 rounded-full shadow-glow-purple transition duration-200"
+                onClick={onRegisterClick}
+                className="hidden sm:inline-block px-3.5 py-1.5 text-xs font-semibold text-white bg-[#E11D2E] hover:bg-[#B91C1C] rounded-lg transition-colors cursor-pointer"
               >
                 Đăng ký
               </button>
             </div>
           )}
 
-          {/* Mobile hamburger */}
+          {/* Mobile menu toggle */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-lg bg-[#15152E] text-slate-300 hover:text-white border border-white/10"
+            className="lg:hidden p-2 text-[#A3A3A3] hover:text-white rounded-lg hover:bg-[#1C1C1C] transition cursor-pointer"
+            aria-label="Toggle menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-[#0e0e24] border-b border-white/10 px-4 py-3 space-y-3 animate-fade-in">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm game, tên người chơi..."
-              className="w-full bg-[#15152E] border border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-200"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-xs font-medium pt-1">
-            {navMenuItems.map((item) => (
-              <a
-                key={item.id}
-                href={item.href}
+        <div className="lg:hidden bg-[#141414] border-b border-[#2A2A2A] px-4 py-3 space-y-2">
+          {navMenuItems.map((item) => (
+            <a
+              key={item.id}
+              href={item.href}
+              onClick={() => {
+                setActiveMenu(item.id);
+                setMobileMenuOpen(false);
+                if (activeTab !== 'catalog') setActiveTab('catalog');
+              }}
+              className={`block px-3 py-2 rounded-lg text-xs font-medium ${
+                activeMenu === item.id ? 'bg-[#E11D2E] text-white font-bold' : 'text-[#A3A3A3] hover:bg-[#1C1C1C] hover:text-white'
+              }`}
+            >
+              {item.label}
+            </a>
+          ))}
+          {!currentUser && (
+            <div className="pt-2 border-t border-[#2A2A2A] flex items-center gap-2">
+              <button
                 onClick={() => {
-                  setActiveMenu(item.id);
                   setMobileMenuOpen(false);
+                  onLoginClick();
                 }}
-                className={`px-3 py-2 rounded-lg transition ${
-                  activeMenu === item.id ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40 font-bold' : 'text-slate-300 hover:bg-white/5'
-                }`}
+                className="flex-1 py-2 text-xs font-semibold text-white border border-[#2A2A2A] rounded-lg text-center"
               >
-                {item.label}
-              </a>
-            ))}
-          </div>
+                Đăng nhập
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onRegisterClick();
+                }}
+                className="flex-1 py-2 text-xs font-semibold text-white bg-[#E11D2E] rounded-lg text-center"
+              >
+                Đăng ký
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

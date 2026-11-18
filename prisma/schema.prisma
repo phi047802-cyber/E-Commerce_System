@@ -18,6 +18,13 @@ model User {
   phone_number  String?
   role          String   @default("RENTER") // RENTER, COMPANION, CS_AGENT, AUDITOR, ADMIN
   status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, BANNED
+  is_email_verified Boolean @default(true) // Đã xác minh email (UC01)
+  avatar_url    String?  // Ảnh đại diện bảo mật (REF-PROF-01)
+  bio           String?  // Tiểu sử / giới thiệu bản thân
+  date_of_birth DateTime? // Ngày sinh
+  favorite_games String? // Danh sách game yêu thích (chuỗi JSON hoặc danh sách phân tách dấu phẩy)
+  google_id     String?  @unique // Google OAuth2 Account ID (FR-001)
+  is_onboarding_completed Boolean @default(true) // Trạng thái hoàn thiện hồ sơ sau đăng nhập Google (FR-001)
   created_at    DateTime @default(now())
 
   // Quan hệ
@@ -27,6 +34,8 @@ model User {
   bookings_cancelled  Booking[]            @relation("CancelledByBookings")
   booking_changes     BookingStatusHistory[]
   chat_messages       ChatMessage[]
+  call_logs_initiated CallLog[]            @relation("CallInitiator")
+  call_logs_received  CallLog[]            @relation("CallReceiver")
   disputes_as_renter  DisputeCase[]        @relation("RenterDisputes")
   evidences_uploaded  DisputeEvidence[]
   decisions_as_cs     DisputeDecision[]
@@ -35,6 +44,8 @@ model User {
   notifications       Notification[]
   audit_logs          AuditLog[]
   alerts_resolved     LedgerAuditAlert[]
+  kyc_records         KycRecord[]          @relation("UserKycRecords")
+  kyc_reviews         KycRecord[]          @relation("KycReviewer")
 
   @@map("users")
 }
@@ -42,20 +53,22 @@ model User {
 model CompanionProfile {
   profile_id          String   @id @default(uuid())
   user_id             String   @unique
-  game_id             String
-  verified_tier_id    String
-  hourly_rate         Int      // Số nguyên VND
+  game_id             String?
+  verified_tier_id    String?
+  hourly_rate         Int?     // Số nguyên VND
+  profile_status      String   @default("INCOMPLETE") // INCOMPLETE, ACTIVE
   verification_status String   @default("UNVERIFIED") // UNVERIFIED, PENDING_REVIEW, VERIFIED
   availability        String   @default("OFFLINE") // ONLINE, BUSY, OFFLINE
   trust_score         Float    @default(80.00) // Khởi tạo 80.00 theo Demo Policy
   audio_bio_url       String?
-  game_account_id     String
+  game_account_id     String?
+  max_hours_per_day   Int      @default(10) // Giới hạn giờ nhận đơn/ngày (REF-PROF-01, BR-03, D08)
   created_at          DateTime @default(now())
 
   // Quan hệ
   user             User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  game             GameCatalog      @relation(fields: [game_id], references: [game_id])
-  tier             SkillRankTier    @relation(fields: [verified_tier_id], references: [tier_id])
+  game             GameCatalog?     @relation(fields: [game_id], references: [game_id])
+  tier             SkillRankTier?   @relation(fields: [verified_tier_id], references: [tier_id])
   slots            SlotCalendar[]
   bookings         Booking[]
   trust_score_logs TrustScoreLog[]
@@ -137,6 +150,7 @@ model Booking {
   reviews             Review[]
   trust_logs          TrustScoreLog[]
   transactions        LedgerTransaction[]
+  settlement_retry    SettlementRetryQueue?
 
   @@index([renter_id])
   @@index([profile_id])
@@ -173,8 +187,30 @@ model Session {
   // Quan hệ
   booking      Booking       @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
   messages     ChatMessage[]
+  call_logs    CallLog[]
 
   @@map("sessions")
+}
+
+model CallLog {
+  call_id      String    @id @default(uuid())
+  session_id   String
+  caller_id    String
+  receiver_id  String?
+  started_at   DateTime  @default(now())
+  ended_at     DateTime?
+  duration_sec Int       @default(0)
+  events       String?   // JSON mảng sự kiện: [{ event, timestamp, details }]
+  result       String    @default("COMPLETED") // COMPLETED, MISSED, REJECTED, FAILED
+  created_at   DateTime  @default(now())
+
+  // Quan hệ
+  session      Session   @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
+  caller       User      @relation("CallInitiator", fields: [caller_id], references: [user_id])
+  receiver     User?     @relation("CallReceiver", fields: [receiver_id], references: [user_id])
+
+  @@index([session_id])
+  @@map("call_logs")
 }
 
 model ChatMessage {
@@ -200,6 +236,7 @@ model Wallet {
   wallet_type       String   @default("STANDARD")
   available_balance Int      @default(0) // Số nguyên VND >= 0
   escrow_balance    Int      @default(0) // Số nguyên VND >= 0
+  penalty_debt      Int      @default(0) // Số nguyên VND >= 0 ghi nhận nợ phạt (D22)
   version           Int      @default(1) // Optimistic Lock
   updated_at        DateTime @default(now())
 
@@ -276,9 +313,12 @@ model Payment {
   provider     String   @default("MOCK_VNPAY") // MOCK_VNPAY, MOCK_MOMO
   gateway_ref  String   @unique
   amount       Int      // Số nguyên VND
-  status       String   @default("PENDING") // PENDING, SUCCESS, FAILED, EXPIRED
+  status       String   @default("PENDING") // PENDING, SUCCESS, FAILED, EXPIRED, LATE
   created_at   DateTime @default(now())
   processed_at DateTime?
+  expires_at   DateTime?
+  qr_url       String?
+  sepay_id     String?
 
   // Quan hệ
   transaction  LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
@@ -324,14 +364,21 @@ model WithdrawalRequest {
 }
 
 model DisputeCase {
-  dispute_id      String   @id @default(uuid())
-  booking_id      String   @unique // Chống tạo trùng khiếu nại (BR-26)
-  renter_id       String
-  reason_category String   // NO_SHOW, HARASSMENT, SKILL_MISMATCH, TECHNICAL_ISSUE
-  description     String
-  status          String   @default("OPENED") // OPENED, EVIDENCE_PENDING, UNDER_REVIEW, RESOLVED, CLOSED
-  created_at      DateTime @default(now())
-  resolved_at     DateTime?
+  dispute_id            String    @id @default(uuid())
+  booking_id            String    @unique // Chống tạo trùng khiếu nại (BR-26)
+  renter_id             String
+  reason_category       String   // NO_SHOW, HARASSMENT, SKILL_MISMATCH, TECHNICAL_ISSUE
+  description           String
+  status                String    @default("OPENED") // OPENED, EVIDENCE_PENDING, UNDER_REVIEW, RESOLVED, CLOSED
+  evidence_deadline     DateTime? // Hạn 24 giờ nộp bổ sung bằng chứng (D25)
+  evidence_requested_at DateTime? // Thời điểm bắt đầu tạm dừng đồng hồ SLA (D25)
+  paused_sla_ms         Int       @default(0) // Tổng mili-giây SLA đã tạm dừng khi chờ chứng cứ (D25)
+  evidence_requested_by String?   // CS Agent ID yêu cầu bổ sung chứng cứ
+  evidence_request_note String?   // Ghi chú cụ thể của CS khi yêu cầu bổ sung
+  companion_explanation String?   // Lời giải trình của Companion (D29)
+  companion_explained_at DateTime? // Thời điểm Companion gửi giải trình
+  created_at            DateTime  @default(now())
+  resolved_at           DateTime?
 
   // Quan hệ
   booking         Booking           @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
@@ -417,6 +464,7 @@ model Notification {
   title           String
   message         String
   type            String
+  target_url      String?
   is_read         Boolean  @default(false)
   created_at      DateTime @default(now())
 
@@ -450,9 +498,11 @@ model LedgerAuditAlert {
   error_code    String
   error_message String
   context_json  String?
+  repeat_count  Int      @default(1)
   is_resolved   Boolean  @default(false)
   resolved_by   String?
   created_at    DateTime @default(now())
+  updated_at    DateTime @default(now()) @updatedAt
 
   // Quan hệ
   transaction   LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
@@ -460,4 +510,89 @@ model LedgerAuditAlert {
 
   @@index([is_resolved])
   @@map("ledger_audit_alerts")
+}
+
+model AuthOtp {
+  otp_id      String   @id @default(uuid())
+  email       String
+  otp_hash    String
+  purpose     String   // FORGOT_PASSWORD, EMAIL_VERIFICATION
+  attempts    Int      @default(0)
+  expires_at  DateTime
+  created_at  DateTime @default(now())
+
+  @@index([email, purpose])
+  @@map("auth_otps")
+}
+
+model KycRecord {
+  kyc_id           String    @id @default(uuid())
+  user_id          String
+  id_front_path    String
+  id_front_iv      String
+  id_front_tag     String
+  id_back_path     String
+  id_back_iv       String
+  id_back_tag      String
+  selfie_path      String
+  selfie_iv        String
+  selfie_tag       String
+  status           String    @default("PENDING") // PENDING, VERIFIED, REJECTED
+  rejection_reason String?
+  reviewed_by      String?
+  reviewed_at      DateTime?
+  created_at       DateTime  @default(now())
+
+  // Quan hệ
+  user             User      @relation("UserKycRecords", fields: [user_id], references: [user_id], onDelete: Cascade)
+  reviewer         User?     @relation("KycReviewer", fields: [reviewed_by], references: [user_id])
+
+  @@index([user_id])
+  @@index([status])
+  @@map("kyc_records")
+}
+
+model SiteVisit {
+  visit_id    String   @id @default(uuid())
+  session_key String   @unique
+  ip_hash     String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+
+  @@map("site_visits")
+}
+
+model SettlementRetryQueue {
+  retry_id        String   @id @default(uuid())
+  booking_id      String   @unique
+  attempts        Int      @default(0) // Số lần đã thử lại (D26: tối đa 3 lần sau 1, 5, 15 phút)
+  max_attempts    Int      @default(3)
+  next_retry_at   DateTime
+  idempotency_key String   // CÙNG idempotency_key trên mọi lần thử (D26)
+  last_error      String?
+  status          String   @default("PENDING") // PENDING, SUCCESS, EXHAUSTED
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  booking         Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+
+  @@map("settlement_retry_queue")
+}
+
+model News {
+  news_id      String   @id @default(uuid())
+  slug         String   @unique
+  title        String
+  summary      String
+  content      String
+  category     String
+  image_url    String
+  author       String   @default("Ban Quản Trị INSTASQUAD")
+  published_at DateTime @default(now())
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([category])
+  @@map("news")
 }

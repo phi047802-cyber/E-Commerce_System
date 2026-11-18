@@ -8,11 +8,11 @@ export const Testimonials: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
-            <MessageSquareQuote className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <MessageSquareQuote className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-lg md:text-xl font-extrabold uppercase tracking-wide text-white">
+            <h2 className="text-base md:text-lg font-bold uppercase tracking-wide text-white">
               KHÁCH HÀNG NÓI GÌ VỀ CHÚNG TÔI?
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -26,7 +26,7 @@ export const Testimonials: React.FC = () => {
           className="group text-xs md:text-sm font-semibold text-purple-400 hover:text-purple-300 flex items-center gap-1 transition"
         >
           <span>Xem tất cả đánh giá</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
         </a>
       </div>
 
@@ -35,16 +35,21 @@ export const Testimonials: React.FC = () => {
         {MOCK_REVIEWS.map((rev) => (
           <div
             key={rev.id}
-            className="rounded-2xl bg-[#15152E] border border-white/10 hover:border-purple-500/40 p-4 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-glow-purple select-none"
+            className="rounded-2xl bg-[#0D0D12] border border-white/[0.08] hover:border-purple-500/40 p-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 select-none shadow-sm"
           >
             <div>
-              {/* User Header */}
-              <div className="flex items-center space-x-3 mb-3">
+              {/* User Header with Consistent Gamer Avatar */}
+              <div className="flex items-center space-x-2.5 mb-3">
                 <img
                   src={rev.avatar}
                   alt={rev.author}
                   loading="lazy"
-                  className="w-10 h-10 rounded-full object-cover border border-purple-500/40 p-0.5"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = '/images/avatars/av01.jpg';
+                  }}
+                  className="w-9 h-9 rounded-full object-cover border border-purple-500/40 p-0.5 bg-[#14141B]"
                 />
                 <div className="min-w-0">
                   <h3 className="text-xs font-bold text-white truncate">
@@ -60,10 +65,10 @@ export const Testimonials: React.FC = () => {
               <div className="flex items-center justify-between gap-1 mb-2.5">
                 <div className="flex items-center text-amber-400">
                   {[...Array(rev.rating)].map((_, i) => (
-                    <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                    <Star key={i} className="w-3 h-3 fill-amber-400" />
                   ))}
                 </div>
-                <span className="text-[10px] font-bold text-slate-300 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                <span className="text-[10px] font-semibold text-slate-300 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06] truncate max-w-[100px]">
                   {rev.gameName}
                 </span>
               </div>
@@ -74,9 +79,9 @@ export const Testimonials: React.FC = () => {
               </p>
             </div>
 
-            <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500">
+            <div className="mt-4 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-400">
               <span>Đã xác thực đơn</span>
-              <span className="text-emerald-400 font-semibold">100% Escrow</span>
+              <span className="text-emerald-400 font-medium">100% Escrow</span>
             </div>
           </div>
         ))}
@@ -84,3 +89,4 @@ export const Testimonials: React.FC = () => {
     </section>
   );
 };
+

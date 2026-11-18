@@ -1,6 +1,6 @@
 # INSTASQUAD — Sổ quyết định PO (PO Decision Log)
 
-Tài liệu này ghi nhận và theo dõi toàn bộ **18 quyết định (D01 – D18)** từ sheet `PO_Decisions` trong file WBS nguồn `docs/source/INSTASQUAD_WBS_Detailed.xlsx`, kèm theo phân tích chi tiết, đề xuất kỹ thuật, chính sách demo an toàn và biên bản phê duyệt chính thức từ PO.
+Tài liệu này ghi nhận và theo dõi toàn bộ các quyết định kỹ thuật từ sheet `PO_Decisions` trong file WBS nguồn `docs/source/INSTASQUAD_WBS_Detailed.xlsx`, kèm theo phân tích chi tiết, đề xuất kỹ thuật, chính sách demo an toàn và biên bản phê duyệt/chốt chính thức.
 
 ---
 
@@ -14,37 +14,120 @@ Tài liệu này ghi nhận và theo dõi toàn bộ **18 quyết định (D01 �
 >   - **D16**: SLA dưới 45 phút cho khiếu nại (BR-19) — *Mức độ: Trung bình*.
 >   - **D17**: Chính sách sửa/xóa review (BR-22) — *Mức độ: Trung bình*.
 >   - **D18**: Phục hồi lỗi ledger và người xử lý thủ công (BR-24) — *Mức độ: Rất cao*.
-> - **Nghị quyết xử lý đã được duyệt**: Hệ thống đưa trọn vẹn cả **18 quyết định (D01–D18)** vào danh mục quản trị. Trong đó, quyết định **D18** (xử lý lỗi ledger) có mức độ *Rất cao*, ảnh hưởng trực tiếp đến an toàn tài chính nên được đưa vào nhóm `REQUIRED` bắt buộc phải chốt cùng nhóm D01–D15 trước khi triển khai đường tiền.
+> - **Nghị quyết xử lý đã được phê duyệt**: Hệ thống đưa trọn vẹn cả **18 quyết định (D01–D18)** vào danh mục quản trị. Trong đó, quyết định **D18** (xử lý lỗi ledger) có mức độ *Rất cao*, ảnh hưởng trực tiếp đến an toàn tài chính nên được đưa vào nhóm `REQUIRED` bắt buộc phải chốt cùng nhóm D01–D15 trước khi triển khai đường tiền.
+> - **Bộ quyết định chốt ngày 06/11/2026 (D21–D27)**: Nhóm chốt dứt điểm các điểm mở mà Project Charter chưa quy định, không chờ PO, kế thừa và thay thế các quyết định cũ cùng chủ đề (D02, D03, D04, D05, D06, D12 phần chia phạt, D15, D18 phần retry).
 
 ---
 
-## 2. Bảng tổng hợp trạng thái phê duyệt (D01 – D18)
+## 2. Bảng tổng hợp trạng thái phê duyệt & Chốt chính thức (D01 – D27)
 
-| Decision ID | Chủ đề | Mức ảnh hưởng | Owner | WBS / BR | Phân loại | Trạng thái PO | Tóm tắt chính sách đã duyệt cho Demo |
+| Decision ID | Chủ đề | Mức ảnh hưởng | Owner | WBS / BR | Phân loại | Trạng thái | Tóm tắt chính sách & Triển khai |
 |:---:|:---|:---:|:---|:---|:---:|:---:|:---|
 | **D01** | Thời hạn giữ slot tạm (`held_until`) | Rất cao | PO + Tech Lead | `07.01.05`<br>`BR-02` | `REQUIRED` | **APPROVED** | Khóa tạm **10 phút**. Hết 10 phút tự động nhả slot về `AVAILABLE`. Không gia hạn khi thanh toán pending. |
-| **D02** | Không phản hồi nghiệm thu trong 15 phút | Rất cao | PO | `09.01.09`<br>`BR-14;15` | `REQUIRED` | **APPROVED** | Bật **Auto-Accept sau 15 phút im lặng**, giải ngân 88/12, ghi nhận lý do `SYSTEM_AUTO_ACCEPT_TIMEOUT`. |
-| **D03** | Phân bổ penalty khi Renter hủy < 10 phút | Rất cao | PO + Tài chính | `10.01.05`<br>`BR-12` | `REQUIRED` | **APPROVED** | Áp dụng tỷ lệ **88/12**: 88% số tiền phạt chuyển cho Companion, 12% ghi nhận doanh thu nền tảng. |
-| **D04** | Penalty 20% khi Companion lỗi $\ge 80\%$ | Rất cao | PO + Tài chính | `10.02.06`<br>`BR-17` | `REQUIRED` | **APPROVED** | Chuyển 20% cho Renter bồi thường. Trừ vào ví khả dụng; nếu thiếu ghi nhận nợ phạt `PENALTY_DEBT`, **không làm âm ví**. |
-| **D05** | Nhánh tranh chấp khi Companion lỗi < 80% | Rất cao | PO | `10.02.07`<br>`BR-18` | `REQUIRED` | **APPROVED** | Phân xử nhị phân theo sơ đồ BPMN: Lỗi < 80% coi như hoàn tất và **giải ngân 88/12** cho Companion. |
-| **D06** | Hạn bổ sung chứng cứ khiếu nại | Cao | PO + CS | `10.02.04`<br>`BR-16;19` | `DEMO_POLICY` | **APPROVED** | Thời hạn bổ sung tối đa **24 giờ**. Hết hạn CS phán quyết dựa trên dữ liệu và log chat hiện có. |
+| **D02** | Không phản hồi nghiệm thu trong 15 phút | Rất cao | PO | `09.01.09`<br>`BR-14;15` | `REQUIRED` | **ĐƯỢC THAY THẾ BỞI D24** | Bật **Auto-Accept sau 15 phút im lặng**, giải ngân 88/12, ghi nhận lý do `SYSTEM_AUTO_ACCEPT_TIMEOUT`. *(Được thay thế và hoàn thiện bởi D24)*. |
+| **D03** | Phân bổ penalty khi Renter hủy < 10 phút | Rất cao | PO + Tài chính | `10.01.05`<br>`BR-12` | `REQUIRED` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Được thay thế bởi **D21** (Phạt 100% Escrow, chia 88% Companion và 12% Nền tảng, hai bút toán đối ứng cân bằng). |
+| **D04** | Penalty 20% khi Companion lỗi $\ge 80\%$ | Rất cao | PO + Tài chính | `10.02.06`<br>`BR-17` | `REQUIRED` | **ĐƯỢC THAY THẾ BỞI D22** | Được thay thế bởi **D22** (Renter hoàn 100%, phạt 20% trừ ví Companion ghi có doanh thu nền tảng, ghi nợ `PENALTY_DEBT`, không làm âm ví). |
+| **D05** | Nhánh tranh chấp khi Companion lỗi < 80% | Rất cao | PO | `10.02.07`<br>`BR-18` | `REQUIRED` | **ĐƯỢC THAY THẾ BỞI D23** | Được thay thế bởi **D23** (Lỗi 1–79% đi theo nhánh "Không", giải ngân 88/12, CS ghi chú kết luận, không phạt, không tính vào tỷ lệ khiếu nại TrustScore). |
+| **D06** | Hạn bổ sung chứng cứ khiếu nại | Cao | PO + CS | `10.02.04`<br>`BR-16;19` | `DEMO_POLICY` | **ĐƯỢC THAY THẾ BỞI D25** | Được thay thế bởi **D25** (Thời hạn bổ sung chứng cứ tối đa 24 giờ; tạm dừng đồng hồ SLA 45 phút khi ở trạng thái `EVIDENCE_PENDING`). |
 | **D07** | Định nghĩa TrustScore & Chuẩn hóa | Rất cao | PO + BA | `11.01.05`<br>`BR-21` | `REQUIRED` | **APPROVED** | Quy đổi rating $1\text{--}5 \rightarrow 20\text{--}100$. Tính trên toàn bộ lịch sử (Lifetime). Mặc định tạo mới 80 điểm. Điểm $< 40$ tạm khóa. |
 | **D08** | Giới hạn 10 giờ/ngày & Múi giờ | Cao | PO + Tech Lead | `06.01.10`<br>`BR-03` | `REQUIRED` | **APPROVED** | Múi giờ Việt Nam `Asia/Ho_Chi_Minh` (UTC+7). Tính từ 00:00 đến 23:59 theo ngày bắt đầu của slot. Trần 10 giờ/ngày. |
 | **D09** | Cổng nạp tiền và mức độ tích hợp | Cao | PO + Tech Lead | `04.01.07`<br>`BR-07` | `DEMO_POLICY` | **APPROVED** | Sử dụng **Payment Simulator nội bộ**, mô phỏng VNPay/MoMo với UI chọn kịch bản và webhook callback có chữ ký HMAC mock. |
 | **D10** | Chat/thoại & Cơ chế lưu chứng cứ | Cao | PO + Tech Lead | `04.01.08`<br>`BR-20;28` | `DEMO_POLICY` | **APPROVED** | Chat text qua **WebSocket cục bộ** (có regex filter chặn SĐT/URL/STK theo BR-20). Thoại chỉ mock metadata. Bằng chứng đính kèm ảnh nhỏ. |
 | **D11** | Vòng đời rút tiền (`Withdrawal`) | Cao | PO + Tài chính | `12.01.01`<br>`BR-23` | `REQUIRED` | **APPROVED** | **Khóa/trừ số dư khả dụng ngay khi tạo yêu cầu**. Nếu Admin Reject thì Ledger tự động sinh bút toán hoàn trả lại ví. |
-| **D12** | Hủy khi phiên chơi đã bắt đầu | Cao | PO + BA | `10.01.01`<br>`BR-13` | `REQUIRED` | **APPROVED** | **Khóa nút Hủy** khi `now >= start_time`. Mọi tranh chấp sau thời điểm này bắt buộc chuyển sang luồng Báo sự cố (RMA). |
+| **D12** | Hủy khi phiên chơi đã bắt đầu | Cao | PO + BA | `10.01.01`<br>`BR-13` | `REQUIRED` | **APPROVED (Khóa hủy)** | **Khóa nút Hủy** khi `now >= start_time`. Mọi tranh chấp sau thời điểm này chuyển sang RMA. Toàn bộ phần phân chia phạt hủy < 10m được tách riêng và chốt tại **D21**. |
 | **D13** | Cơ sở tính 88/12 & Làm tròn số nguyên | Cao | PO + Tài chính | `07.01.04`<br>`BR-15` | `REQUIRED` | **APPROVED** | Làm tròn xuống doanh thu sàn: $\text{platform} = \lfloor \text{total} \times 0.12 \rfloor$, $\text{companion} = \text{total} - \text{platform}$. Bảo toàn $\sum \equiv 100\%$. |
 | **D14** | Gap ERD: Session/Dispute/Evidence | Rất cao | Tech Lead + PO | `05.01.08`<br>`BR-28` | `REQUIRED` | **APPROVED** | Bổ sung chính thức vào Prisma Schema: `Session`, `ChatMessage`, `DisputeCase`, `DisputeEvidence`, `DisputeDecision`. |
-| **D15** | Quyền phán quyết & Kiểm soát CS | Cao | PO + CS | `10.02.05`<br>`BR-16;17` | `REQUIRED` | **APPROVED** | Áp dụng phân quyền RBAC (`CS_AGENT`, `ADMIN`), bắt buộc nhập lý do phán quyết (`decision_reason`) và ghi audit log bất biến. |
+| **D15** | Quyền phán quyết khiếu nại (RBAC) | Cao | PO + CS | `10.02.05`<br>`BR-16` | `REQUIRED` | **APPROVED (Quyền CS)** | Áp dụng phân quyền RBAC: Quyền phán quyết giải quyết khiếu nại thuộc vai trò CS Agent / Admin. Toàn bộ phần chế tài nộp phạt 20% nộp về sàn và ghi nợ `PENALTY_DEBT` được tách riêng và chốt tại **D22**. |
 | **D16** | Đo lường SLA khiếu nại (< 45 phút) | Trung bình | PO + CS/BA | `10.02.10`<br>`BR-19` | `DEMO_POLICY` | **APPROVED** | Hiển thị 2 chỉ số: Tổng thời gian giải quyết và Thời gian xử lý chủ động của CS trên Dashboard quản trị. |
 | **D17** | Chính sách sửa/xóa Review | Trung bình | PO + BA | `11.01.02`<br>`BR-22` | `DEMO_POLICY` | **APPROVED** | **Review bất biến (Immutable)**. Mỗi người chỉ đánh giá 1 lần duy nhất cho mỗi booking; không cung cấp API sửa hoặc xóa. |
-| **D18** | Phục hồi lỗi Ledger & Runbook kiểm toán | Rất cao | Tech Lead + PO | `08.01.06`<br>`BR-24` | `REQUIRED` | **APPROVED** | Rollback nguyên trạng trong `prisma.$transaction`, ghi log vào `LEDGER_AUDIT_ALERT`, cung cấp màn hình đối soát cho `AUDITOR`. |
+| **D18** | Phục hồi lỗi Ledger & Runbook kiểm toán | Rất cao | Tech Lead + PO | `08.01.06`<br>`BR-24` | `REQUIRED` | **APPROVED (Rollback Ledger)** | Rollback nguyên trạng trong `prisma.$transaction`, ghi log vào `LEDGER_AUDIT_ALERT`. Toàn bộ phần cơ chế tự động thử lại 3 lần giải ngân Escrow được tách riêng và chốt tại **D26**. |
+| **D19** | Hoãn tính năng gọi thoại WebRTC (Voice Call) | Trung bình | Tech Lead + PO | `FR-006`<br>`REF-CHAT-01` | `DEFERRED` | **APPROVED** | **Hoãn lại tính năng gọi thoại WebRTC trực tiếp** (phạm vi học thuật, tránh chi phí duy trì cụm máy chủ TURN/STUN trả phí xuyên NAT/Firewall; chat text WebSocket vẫn chạy 100% kèm bộ lọc Regex). Ghi nhận là điểm khác biệt có chủ ý so với yêu cầu gốc FR-006; khi chơi game thực tế, người dùng sử dụng kênh đàm thoại in-game hoặc Discord chuyên dụng. |
+| **D20** | Không chat trước khi đặt đơn (Non-Circumvention) | Cao | PO + Tech Lead | `REF-ORDER-01`<br>`REF-CHAT-01` | `REQUIRED` | **APPROVED** | **Không chat trước khi đặt đơn**. Phòng chat chỉ được tạo và kích hoạt sau khi Renter đã ký quỹ Escrow và Companion bấm Chấp nhận đơn. Căn cứ tham chiếu luồng vận hành của Playerduo (P4 - độ tin cậy thấp: user chọn player -> thanh toán phí thuê -> kết nối phòng chat) kết hợp nguyên tắc sống còn về bảo vệ doanh thu sàn và phòng chống giao dịch chui ngoài sàn (Non-Circumvention Policy). |
+| **D21** | Phạt hủy đơn < 10 phút (Chia 88/12) | Rất cao | Nhóm Tech & Fin | `10.01.05`<br>`BR-12` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Phạt 100% ký quỹ, chia 88% Companion và 12% Nền tảng, hai bút toán đối ứng trong 1 lần xử lý, làm tròn số nguyên integer. Mốc 10–29 phút giữ đúng BPMN (70/30). *(Thay thế D03, D12)*. |
+| **D22** | Khiếu nại lỗi Companion $\ge 80\%$ & Nợ phạt | Rất cao | Nhóm Tech & Fin | `10.02.06`<br>`BR-17` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Renter hoàn 100%; phạt Companion 20% trừ từ ví khả dụng ghi có doanh thu nền tảng (loại phạt vi phạm). Thiếu số dư ghi `PENALTY_DEBT`, cấn trừ thu nhập đơn sau; ví không bao giờ âm. *(Thay thế D04, D15)*. |
+| **D23** | Tranh chấp lỗi Companion 1–79% (Nhánh Không) | Rất cao | Nhóm Tech & CS | `10.02.07`<br>`BR-18` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Nhánh "Không", giải ngân 88/12, CS ghi chú kết luận phân xử, không phạt Companion, không tính vào tỷ lệ khiếu nại TrustScore. *(Thay thế D05)*. |
+| **D24** | Tự động nghiệm thu sau 15 phút (Auto-Accept) | Rất cao | Nhóm Tech Lead | `09.01.09`<br>`BR-14;15` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Giữ nguyên: Quá 15 phút im lặng, worker tự động hoàn tất và giải ngân 88/12 cho Companion, ghi log `SYSTEM_AUTO_ACCEPT_TIMEOUT`. *(Thay thế D02)*. |
+| **D25** | Hạn nộp bằng chứng 24h & Tạm dừng SLA CS | Cao | Nhóm Tech & CS | `10.02.04`<br>`BR-16;19` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Hạn nộp bổ sung chứng cứ 24h; quá hạn CS phán quyết theo hồ sơ hiện có; đồng hồ mục tiêu 45 phút tạm dừng khi ở trạng thái `EVIDENCE_PENDING`. *(Thay thế D06)*. |
+| **D26** | Cơ chế Retry 3 lần khi giải ngân Escrow lỗi | Rất cao | Nhóm Tech Lead | `08.01.06`<br>`BR-24` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Thử lại tối đa 3 lần (sau 1, 5, 15m) với cùng `idempotency_key`; sau 3 lần giữ Escrow `HELD`, sinh `LedgerAuditAlert` cho Auditor xử lý thủ công trong 24h, thông báo Companion. *(Thay thế D18 retry)*. |
+| **D27** | Công thức phễu Funnel Conversion Rate | Trung bình | Nhóm Tech & BA | `BR-002`<br>`BR-003` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định** | Conversion Rate = đơn ký quỹ thành công / số phiên truy cập duy nhất (Funnel); tỷ lệ hoàn tất đơn hiển thị riêng biệt. |
+| **D28** | Xử lý Webhook nạp tiền đến muộn sau khi hết hạn 15 phút | Cao | Nhóm Tech Lead | `BR-05`<br>`BR-06` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 08/11/2026 – Đợt C phát triển thêm** | Đơn nạp hết hạn vẫn tự động ghi có ví khả dụng Renter theo số tiền thực nhận; đánh dấu đơn `LATE` và tạo cảnh báo `LedgerAuditAlert(WEBHOOK_LATE_PAYMENT)`. |
+| **D29** | Quyền giải trình và nộp bổ sung chứng cứ của Companion | Cao | Tech Lead + CS | `10.02.04`<br>`BR-16` | `CORE_RULE` | **NHÓM ĐÃ CHỐT 08/11/2026 – Đợt D1 phát triển thêm** | Companion có quyền gửi văn bản giải trình và minh chứng trong suốt thời gian hồ sơ khiếu nại còn mở; theo BPMN Hình 6b, cả hai bên đều được quyền nộp bổ sung chứng cứ. |
+
+### 2.1. Bảng ánh xạ mã quyết định (Mã cũ → Mã mới chốt)
+
+Nhằm đảm bảo mỗi mã quyết định chỉ mang **DUY NHẤT MỘT NGHĨA**, không chồng chéo, không dùng chung hai nội dung trong cùng một mã, nhóm chuẩn hóa bảng ánh xạ kế thừa và tách biệt dứt điểm như sau:
+
+| Mã cũ | Nội dung cũ | Mã mới chốt | Nội dung duy nhất sau khi chuẩn hóa | Ghi chú chuyển đổi |
+|:---:|:---|:---:|:---|:---|
+| **D02** | Tự động nghiệm thu sau 15 phút khi Renter im lặng | **D24** | Quá 15 phút sau khi phiên kết thúc Renter không nghiệm thu và không khiếu nại, worker tự động hoàn tất và giải ngân 88/12, ghi log `SYSTEM_AUTO_ACCEPT_TIMEOUT`. | Thay thế hoàn toàn D02. |
+| **D03** | Phân bổ tiền phạt khi hủy đơn < 10 phút | **D21** | Hủy < 10 phút phạt 100% Escrow, chia 88% Companion và 12% Nền tảng, hai bút toán đối ứng cân bằng trong một lần xử lý. Mốc 10–29 phút giữ nguyên 70/30. | Thay thế hoàn toàn D03. |
+| **D04** | Chế tài phạt 20% khi lỗi Companion $\ge 80\%$ | **D22** | Renter hoàn 100%; Companion bị phạt 20% trừ từ ví khả dụng nộp về Nền tảng; thiếu số dư ghi `PENALTY_DEBT`, cấn trừ đơn sau, không làm âm ví. | Thay thế hoàn toàn D04. |
+| **D05** | Nhánh tranh chấp khi lỗi Companion 1–79% | **D23** | Nhánh "Không", giải ngân 88/12, CS ghi chú kết luận phân xử, không phạt Companion, không tính vào tỷ lệ khiếu nại TrustScore. | Thay thế hoàn toàn D05. |
+| **D06** | Hạn nộp bổ sung chứng cứ khiếu nại | **D25** | Hạn nộp bổ sung chứng cứ tối đa 24 giờ; đồng hồ SLA mục tiêu 45 phút tạm dừng khi ở trạng thái `EVIDENCE_PENDING`. | Thay thế hoàn toàn D06. |
+| **D12** | Trước đây gộp 2 nội dung (Khóa hủy + Chia phạt) | **D12** *(Duy nhất)*<br>&<br>**D21** | **D12 duy nhất**: Khóa nút Hủy khi phiên chơi đã bắt đầu (`now >= start_time`). Mọi khiếu nại sau thời điểm này chuyển sang RMA.<br>*(Toàn bộ phần phân chia phạt hủy < 10m được tách riêng và chốt tại **D21**)*. | D12 chỉ còn duy nhất 1 nghĩa: Khóa nút Hủy khi đến giờ. |
+| **D15** | Trước đây gộp 2 nội dung (Quyền CS + Xử lý ví âm) | **D15** *(Duy nhất)*<br>&<br>**D22** | **D15 duy nhất**: Quyền phán quyết khiếu nại thuộc vai trò CS Agent / Admin (RBAC).<br>*(Toàn bộ phần chế tài phạt 20% và ghi nợ `PENALTY_DEBT` được tách riêng và chốt tại **D22**)*. | D15 chỉ còn duy nhất 1 nghĩa: Phân quyền RBAC cho CS. |
+| **D18** | Trước đây gộp 2 nội dung (Rollback + Retry 3 lần) | **D18** *(Duy nhất)*<br>&<br>**D26** | **D18 duy nhất**: Phục hồi lỗi Ledger bằng Rollback DB transaction nguyên trạng và ghi log `LEDGER_AUDIT_ALERT` cho Auditor.<br>*(Toàn bộ phần cơ chế tự động thử lại 3 lần giải ngân Escrow được tách riêng và chốt tại **D26**)*. | D18 chỉ còn duy nhất 1 nghĩa: Rollback DB transaction. |
 
 ---
 
-## 3. Biên bản phê duyệt chính thức từ PO (Sign-off Log)
+## 3. Biên bản ghi nhận định hướng kỹ thuật ban đầu (Sign-off Log)
 
 - **Thời điểm phê duyệt**: 2026-10-24
 - **Người phê duyệt**: Product Owner (Người dùng) qua chỉ thị: *"f, phê duyệt hết"*.
-- **Phạm vi hiệu lực**: Toàn bộ 18 quyết định (D01 – D18) đã được thông qua phương án an toàn và trở thành **Baseline kỹ thuật chính thức** cho giai đoạn thiết kế kiến trúc và mô hình dữ liệu (Milestone M2).
+- **Phạm vi hiệu lực**: Bộ khung 18 quyết định kỹ thuật ban đầu (D01 – D18) được thông qua làm phương án cơ sở để triển khai kiến trúc và mô hình dữ liệu (Milestone M2).
+
+---
+
+## 4. Quyết định định hướng nguồn tham chiếu (05/11/2026)
+
+- **Thời điểm phê duyệt**: 05/11/2026
+- **Nội dung quyết định**: **05/11/2026 – Chỉ dùng Playerduo và Lita làm tham chiếu vận hành; quy tắc nghiệp vụ giữ nguyên**.
+- **Chi tiết nghị quyết**:
+  1. **Nguồn tham chiếu vận hành duy nhất**: Nhóm thống nhất chỉ sử dụng 02 nền tảng C2C Game Companion thực tế là **Playerduo** (Việt Nam) và **Lita** (Đông Nam Á) làm căn cứ đối chiếu các luồng thao tác người dùng, màn hình nạp tiền, tạo đơn và vòng đời phiên chơi (được lập thành tài liệu chuẩn tại [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md)).
+  2. **Bảo toàn quy tắc nghiệp vụ của nhóm**: Toàn bộ các quy tắc nghiệp vụ cốt lõi (180 giây phản hồi, nghiệm thu 15 phút, tỷ lệ chia sẻ doanh thu 88/12, phạt hủy theo 3 mốc thời gian 30m/10m, khiếu nại RMA tỷ lệ lỗi 80%, trần 10 giờ/ngày, thuật toán TrustScore, và Sổ cái kép bất biến) là **Quy tắc của nhóm** dựa trên Project Charter, BPMN và Requirements đề tài, giữ nguyên 100% tính độc lập và không phụ thuộc vào hai nguồn tham chiếu trên.
+  3. **Lưu trữ các case study cũ**: Toàn bộ các phân tích case study quốc tế trước đây từ các ngành khác (Upwork, Airbnb, Fiverr, Grab, Uber...) được chuyển vào Phụ lục của `docs/REFERENCE_MAPPING.md` để lưu trữ tư liệu học thuật, không dùng làm tham chiếu chính.
+  4. **Quyết định D19 (REF-CHAT-01)**: Xác nhận chính thức trạng thái **Hoãn lại (DEFERRED)** đối với kênh thoại WebRTC trực tiếp (phạm vi học thuật, tránh chi phí máy chủ STUN/TURN; chat văn bản WebSocket vẫn hoạt động bình thường kèm regex filter che giấu SĐT/STK theo BR-20). Ghi nhận rõ đây là điểm khác với yêu cầu chức năng FR-006 ban đầu.
+  5. **Quyết định D20 (Chính sách mở phòng chat sau Ký quỹ)**: Không hỗ trợ nhắn tin trao đổi riêng tư trước khi đặt đơn. Phòng chat phiên chơi chỉ được kích hoạt sau khi Renter đã ký quỹ Escrow và Companion bấm Chấp nhận đơn. Căn cứ tham chiếu luồng vận hành của Playerduo (P4 - độ tin cậy thấp: user chọn player $\rightarrow$ thanh toán phí thuê $\rightarrow$ kết nối phòng chat) kết hợp nguyên tắc cốt lõi về bảo vệ doanh thu sàn và phòng chống giao dịch chui ngoài sàn (Non-Circumvention Policy).
+
+---
+
+## 5. Bảng quyết định đã chốt (NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định: D21 – D27)
+
+Nhóm quyết định chốt luôn toàn bộ các điểm mở kỹ thuật và vận hành mà Project Charter và BPMN gốc chưa quy định chi tiết, KHÔNG chờ PO, nhằm đảm bảo hệ thống vận hành hoàn toàn tự động, toàn vẹn sổ cái ghi kép và không có điểm nghẽn. Mỗi mục gồm 3 cột chuẩn: *Nguyên văn BPMN / Slide (trích từ `BPMN_EXTRACT.txt`)*, *Quyết định của nhóm*, *Lý do*.
+
+| Mã Quyết định | Nguyên văn BPMN / Slide (trích từ `BPMN_EXTRACT.txt`) | Quyết định của nhóm | Lý do |
+|:---:|:---|:---|:---|
+| **D21** | Trang 9 (Bước 4c): *"Tài liệu Charter chưa nói rõ khoản phạt này chia cho Companion và nền tảng thế nào"*<br>Trang 9 (Bước 4b): *"Hai khoản này được ghi thành hai dòng đối ứng"* | **Hủy dưới 10 phút**: Phạt 100% ký quỹ, chia 88% Companion và 12% nền tảng, hai bút toán đối ứng trong một lần xử lý, làm tròn theo thuật toán 88/12 hiện có. Mốc 10–29 phút giữ đúng BPMN: 70% Renter, 30% Companion, không trừ hoa hồng. *(Thay thế D03 và phần chia phạt của D12)*. | Bù đắp chi phí cơ hội cho Companion khi bị hủy sát giờ hẹn (< 10 phút), đồng thời bảo toàn nguồn thu hoa hồng nền tảng theo tỷ lệ 88/12 đã định nghĩa, đảm bảo nguyên tắc bút toán đối ứng cân bằng ($\Delta = 0$). |
+| **D22** | Trang 18 (Bước 8a): *"khoản phạt 20% trừ từ ví nào và chuyển cho ai, cần PO xác nhận"* | **Khiếu nại lỗi từ 80%**: Renter hoàn 100%; phạt Companion 20% giá trị đơn trừ từ ví khả dụng Companion, ghi có doanh thu nền tảng (loại phạt vi phạm). Không đủ số dư thì trừ tối đa số có, phần thiếu ghi `PENALTY_DEBT`, cấn trừ vào thu nhập đơn sau; ví không bao giờ âm. *(Thay thế D04 và D15)*. | Renter đã được hoàn 100% tiền ký quỹ nên khoản phạt 20% đối với Companion là chế tài vi phạm quy chế sàn nộp về nền tảng. Cơ chế `PENALTY_DEBT` đảm bảo nguyên tắc bất biến ví không bao giờ âm (non-negative balance) nhưng vẫn bảo đảm thu hồi đầy đủ chế tài vi phạm khi Companion có thu nhập phát sinh sau. |
+| **D23** | Trang 18 (Bước 7): *"Dự án chỉ quy định mốc từ 80% trở lên"*<br>Trang 18 (Bước 7): *"cần PO xác nhận hoặc bổ sung quy tắc nghiệp vụ"* | **Lỗi 1–79%**: Nhánh "Không", giải ngân 88/12, CS ghi chú kết luận phân xử, không phạt Companion, không tính vào tỷ lệ khiếu nại của TrustScore. *(Thay thế D05)*. | Tuân thủ cấu trúc rẽ nhánh nhị phân của BPMN; bảo vệ Companion khỏi bị phạt nặng đối với các lỗi nhỏ hoặc tranh chấp cảm tính, đồng thời CS vẫn lưu vết ghi chú hòa giải để giám sát chất lượng dịch vụ. |
+| **D24** | Trang 12 (Hình 2A Bước 6): *"Nếu Renter không phản hồi sau 15 phút"*<br>Trang 12 (Bước 8): *"Đây là đề xuất của nhóm, chưa có trong Project Charter"* | **Tự động nghiệm thu sau 15 phút**: Giữ nguyên. Khi Renter im lặng quá 15 phút sau khi phiên kết thúc, worker tự động chuyển trạng thái đơn sang `COMPLETED`, giải ngân 88/12 cho Companion và ghi log `SYSTEM_AUTO_ACCEPT_TIMEOUT`. *(Thay thế D02)*. | Tránh tình trạng tiền Escrow bị giam vô hạn định khi Renter quên hoặc cố tình không phản hồi nghiệm thu, bảo vệ quyền lợi nhận thu nhập kịp thời của Companion. |
+| **D25** | Trang 18 (Bước 6b): *"Thời hạn nộp bổ sung do PO quy định"*<br>Trang 11 (Mục III): *"mục tiêu xử lý khiếu nại trung bình dưới 45 phút"* | **Hạn bổ sung bằng chứng 24 giờ**: Quá hạn CS phán quyết theo hồ sơ hiện có; đồng hồ mục tiêu 45 phút tạm dừng khi chờ bổ sung (`EVIDENCE_PENDING`). *(Thay thế D06)*. | Tạo khung thời gian hợp lý (24 giờ) cho các bên cung cấp chứng cứ mà không làm méo mó chỉ số SLA xử lý chủ động của nhân viên CS (đồng hồ SLA tạm dừng trong thời gian chờ chứng cứ). |
+| **D26** | Trang 14 (Bước 2a): *"tiền của Companion chờ kiểm toán viên xử lý thủ công"*<br>Trang 14 (Bước 2a): *"Hiện chưa có cơ chế tự thử lại hay thời hạn xử lý"* | **Giải ngân Escrow lỗi**: Thử lại tối đa 3 lần (sau 1, 5, 15 phút) bằng worker nền với cùng `idempotency_key` (`SETTLE-BOOKING-${booking_id}`); vẫn lỗi thì giữ Escrow `HELD`, tạo `LedgerAuditAlert` (`SETTLEMENT_RETRY_EXHAUSTED`), Auditor xử lý thủ công trong 24 giờ, thông báo Companion. *(Thay thế phần cơ chế retry giải ngân Escrow của D18)*. | Xử lý tự động lỗi mạng tạm thời bằng Exponential Backoff mà không gây trùng bút toán nhờ khóa Idempotency; phân định rõ ranh giới tự động hóa và ngưỡng can thiệp kiểm toán viên nếu lỗi kéo dài quá 3 lần. |
+| **D27** | Slide 12: *"10.000 booking và 7,5% chưa có công thức"*<br>REQUIREMENTS BR-003: *"Đạt Conversion Rate (tỷ lệ chuyển đổi) tối thiểu 7,5% theo giai đoạn đo lường"* | **Conversion Rate** = đơn ký quỹ thành công / số phiên truy cập duy nhất (Funnel); tỷ lệ hoàn tất đơn hiển thị riêng. | Tách bạch rõ tỷ lệ chuyển đổi khách hàng tiềm năng thành đơn trả phí (Funnel Conversion) với tỷ lệ hoàn thành phiên dịch vụ (Fulfillment Rate), tránh ngộ nhận hiệu quả kinh doanh của sàn. |
+| **D28** | Đợt C phát triển thêm (08/11/2026) – Webhook nạp tiền đến muộn sau khi đơn hết hạn hiệu lực 15 phút | **Hạch toán tiền nạp muộn (LATE)**: Khi nhận được Webhook tiền vào của đơn nạp tiền đã quá hạn 15 phút, hệ thống vẫn tự động ghi có ví khả dụng Renter theo số tiền thực nhận với bút toán Sổ cái kép cân bằng (Variance = 0), chuyển trạng thái đơn `LATE`, đồng thời ghi nhận cảnh báo `LedgerAuditAlert(WEBHOOK_LATE_PAYMENT)` để kiểm toán viên giám sát đối soát. | Bảo đảm quyền lợi tài sản cho khách hàng vì tiền đã vào tài khoản ngân hàng của sàn. Tránh khiếu nại tài chính tiêu cực; khách hàng có thể dùng tiền trong ví khả dụng để đặt đơn khác hoặc yêu cầu rút tiền; đồng thời kiểm toán viên vẫn có cảnh báo đối soát. |
+| **D29** | Trang 18 (Bước 6b): *"Renter và Companion nộp thêm ảnh chụp hoặc giải trình"* | **Quyền giải trình và nộp bổ sung chứng cứ của Companion**: Companion có toàn quyền gửi ý kiến giải trình và bổ sung chứng cứ trong suốt thời gian hồ sơ khiếu nại còn mở; khi ở trạng thái `EVIDENCE_PENDING`, việc nộp giải trình/bằng chứng sẽ đưa hồ sơ về `UNDER_REVIEW` để CS thẩm định tiếp. | Đảm bảo quyền tự bảo vệ của Companion theo đúng BPMN Hình 6b, giúp CS Agent có đầy đủ thông tin hai chiều trước khi ra phán quyết tỷ lệ lỗi. |
+
+---
+
+## 6. Quy định thống nhất giới hạn Upload dữ liệu & Cơ chế đệm Base64 qua JSON
+
+Hệ thống quy định chuẩn hóa kích thước tệp tải lên của người dùng trên toàn bộ các tài liệu và mã nguồn:
+1. **Âm thanh giới thiệu Companion (`audio_intro`)**: $\le 2$MB (định dạng `audio/webm`, `audio/mp3`, `audio/ogg`).
+2. **File ảnh bằng chứng khiếu nại RMA (`evidence_file`)**: $\le 2$MB (định dạng `image/jpeg`, `image/png`, `image/webp`).
+3. **Mỗi ảnh giấy tờ tùy thân eKYC (`front`, `back`, `selfie`)**: $\le 2$MB/ảnh.
+4. **Lý do Router kiểm tra 3MB và 10MB (HTTP Body Buffer)**:
+   - Khi client truyền tải tệp nhị phân thông qua giao thức REST JSON (chuỗi Base64), kích thước dữ liệu sẽ phình to thêm $\approx 33.3\%$ do overhead mã hóa Base64.
+   - Ví dụ: Một tệp âm thanh nhị phân chuẩn $2\text{MB}$ ($2.097.152$ bytes) khi Base64 hóa sẽ có kích thước chuỗi $\approx 2.796.203$ bytes ($2.67\text{MB}$).
+   - Do đó, middleware Express Router tại `companion.router.ts` và `dispute.router.ts` cấu hình ngưỡng chặn sơ bộ `express.json({ limit: '3mb' })` để tiếp nhận toàn vẹn payload JSON mà không bị lỗi `413 Payload Too Large`. Sau đó, service giải mã Base64 và kiểm tra dung lượng nhị phân thật $\le 2.097.152$ bytes.
+   - Tương tự, endpoint eKYC tiếp nhận đồng thời 3 ảnh $\le 2$MB ($\sum \approx 6\text{MB}$ nhị phân $\rightarrow \approx 8\text{MB}$ Base64), nên router cấu hình giới hạn HTTP Body ở mức `10mb`.
+
+---
+
+## 7. Quyết định kỹ thuật bổ sung Đợt F (15/11/2026)
+
+### D31. QUYẾT ĐỊNH KHÔNG GHI ÂM NỘI DUNG CUỘC GỌI MẶC ĐỊNH (FR-006, BPMN HÌNH 2C)
+
+| Mã Quyết định | Yêu cầu gốc / Bối cảnh | Nội dung quyết định chính thức | Lý do & Căn cứ kỹ thuật |
+| :---: | :--- | :--- | :--- |
+| **D31** | **FR-006 & BPMN Hình 2C**: *"ghi nhận dữ liệu và log cần thiết theo chính sách hệ thống"*, BPMN Hình 2C có nhắc đến đính kèm file ghi âm khiếu nại. | **Ghi nhận CallLog chi tiết; KHÔNG tự động ghi âm nội dung cuộc gọi thoại WebRTC theo mặc định**.<br>- Hệ thống tự động ghi nhận đầy đủ nhật ký cuộc gọi `CallLog` (gồm: `session_id`, `caller_id`, `receiver_id`, `started_at`, `ended_at`, `duration_sec`, `events` dòng thời gian kết nối, và `result` COMPLETED / MISSED / FAILED) để hiển thị trong hồ sơ khiếu nại của CS Agent và Admin.<br>- **Hạng mục chưa làm & hướng mở rộng**: Tính năng ghi âm toàn bộ cuộc gọi được đánh dấu là *Hạng mục mở rộng có điều kiện*. Khi triển khai thực tế, bắt buộc phải có sự đồng thuận tường minh của cả hai bên (Consent Toggle), tệp ghi âm phải được mã hóa AES-256-GCM trên đĩa và có chính sách tự động xóa sau 30 ngày (Data Retention Policy). | **Bảo vệ quyền riêng tư & Tuân thủ pháp lý**: Dữ liệu giọng nói là dữ liệu sinh trắc học và thông tin cá nhân đặc biệt nhạy cảm theo quy định pháp luật (Nghị định 13/2023/NĐ-CP về Bảo vệ dữ liệu cá nhân). Việc tự động ghi âm ngầm khi chưa có sự đồng thuận rõ ràng sẽ vi phạm nghiêm trọng quyền riêng tư. Việc lưu trữ CallLog (thời điểm, thời lượng, sự kiện) đã đáp ứng trọn vẹn yêu cầu kiểm toán giải quyết tranh chấp mà không xâm phạm đời tư. |
+

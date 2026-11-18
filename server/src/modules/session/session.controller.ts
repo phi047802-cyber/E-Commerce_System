@@ -57,3 +57,21 @@ export async function handleGetMessages(req: Request, res: Response): Promise<vo
   const messages = await sessionService.getMessages(userId, userRole, id, afterId);
   sendSuccess(res, messages);
 }
+
+export async function handleGetIceServers(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.user_id;
+  const userRole = req.user!.role;
+  const { id } = req.params;
+
+  const result = await sessionService.getIceServers(userId, userRole, id);
+  sendSuccess(res, result);
+}
+
+export async function handleGetCallLogs(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.user_id;
+  const userRole = req.user!.role;
+  const { id } = req.params;
+
+  const logs = await sessionService.getCallLogs(userId, userRole, id);
+  sendSuccess(res, logs);
+}

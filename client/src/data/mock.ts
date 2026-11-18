@@ -22,14 +22,23 @@ export interface MockCompanion {
   online: boolean;
   quote: string;
   image: string;
+  avatar?: string;
   // mapped DB profile / slots if available
   dbProfileId?: string;
+  trustScore?: number;
+  completionRate?: number;
+  is_kyc_verified?: boolean;
+  verification_status?: string;
+  rank_verification?: any;
+  match_score?: number;
+  match_breakdown?: any;
   availableSlots?: {
     slot_id: string;
     start_time: string;
     end_time: string;
     status: 'AVAILABLE' | 'HELD' | 'BOOKED';
   }[];
+  audioBioUrl?: string;
 }
 
 export interface MockReview {
@@ -47,51 +56,60 @@ export const MOCK_GAMES: MockGame[] = [
     id: 'valorant',
     slug: 'valorant',
     name: 'Valorant',
-    companionsCount: '5.2M+',
-    image: '/images/games/valorant.jpg',
+    companionsCount: '4',
+    image: '/images/games/valorant.webp',
     genre: 'Tactical FPS',
   },
   {
     id: 'lol',
     slug: 'lol',
-    name: 'League of Legends',
-    companionsCount: '8.4M+',
-    image: '/images/games/lol.jpg',
+    name: 'Liên Minh Huyền Thoại',
+    companionsCount: '4',
+    image: '/images/games/lol.webp',
     genre: 'MOBA',
   },
   {
     id: 'pubg',
     slug: 'pubg',
     name: 'PUBG',
-    companionsCount: '3.1M+',
-    image: '/images/games/pubg.jpg',
+    companionsCount: '1',
+    image: '/images/games/pubg.webp',
     genre: 'Battle Royale',
   },
   {
     id: 'overwatch2',
     slug: 'overwatch2',
     name: 'Overwatch 2',
-    companionsCount: '1.9M+',
-    image: '/images/games/overwatch2.jpg',
+    companionsCount: '1',
+    image: '/images/games/overwatch2.webp',
     genre: 'Hero Shooter',
   },
   {
     id: 'cs2',
     slug: 'cs2',
     name: 'CS2',
-    companionsCount: '4.5M+',
-    image: '/images/games/cs2.jpg',
+    companionsCount: '2',
+    image: '/images/games/cs2.webp',
     genre: 'Tactical Shooter',
   },
   {
     id: 'genshin',
     slug: 'genshin',
     name: 'Genshin Impact',
-    companionsCount: '6.7M+',
-    image: '/images/games/genshin.jpg',
+    companionsCount: '1',
+    image: '/images/games/genshin.webp',
     genre: 'Action RPG',
   },
+  {
+    id: 'tft',
+    slug: 'tft',
+    name: 'Đấu Trường Chân Lý',
+    companionsCount: '1',
+    image: '/images/games/tft.webp',
+    genre: 'Auto-battler',
+  },
 ];
+
 
 export const MOCK_COMPANIONS: MockCompanion[] = [
   {
@@ -108,7 +126,9 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Duo', 'Rank up'],
     online: true,
     quote: 'Gánh team tận tâm, call mic chuẩn từng round đấu',
-    image: '/images/companions/c01.jpg',
+    image: '/images/games/valorant.webp',
+    avatar: '/images/avatars/av01.jpg',
+    audioBioUrl: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
   },
   {
     id: 'c02',
@@ -116,7 +136,7 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     name: 'LynnCarry',
     verified: true,
     gameId: 'lol',
-    gameName: 'League of Legends',
+    gameName: 'Liên Minh Huyền Thoại',
     tier: 'Master',
     rating: 5.0,
     reviewCount: 890,
@@ -124,7 +144,9 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Mid', 'Carry'],
     online: true,
     quote: 'Tâm lý thoải mái, tư duy thắng liên tục không toxic',
-    image: '/images/companions/c02.jpg',
+    image: '/images/games/lol.webp',
+    avatar: '/images/avatars/av02.jpg',
+    audioBioUrl: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
   },
   {
     id: 'c03',
@@ -132,7 +154,7 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     name: 'RivenMain',
     verified: true,
     gameId: 'lol',
-    gameName: 'League of Legends',
+    gameName: 'Liên Minh Huyền Thoại',
     tier: 'Grandmaster',
     rating: 4.9,
     reviewCount: 412,
@@ -140,7 +162,9 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Top', 'Solo kill'],
     online: true,
     quote: 'Combo mượt mà, bao kéo rank từ Kim Cương lên Cao Thủ',
-    image: '/images/companions/c03.jpg',
+    image: '/images/games/lol.webp',
+    avatar: '/images/avatars/av03.jpg',
+    audioBioUrl: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
   },
   {
     id: 'c04',
@@ -156,7 +180,9 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Support', 'Chill'],
     online: true,
     quote: 'Giọng nói ngọt ngào, tạo bầu không khí siêu vui vẻ',
-    image: '/images/companions/c04.jpg',
+    image: '/images/games/valorant.webp',
+    avatar: '/images/avatars/av04.jpg',
+    audioBioUrl: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
   },
   {
     id: 'c05',
@@ -164,15 +190,16 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     name: 'T1Faker1997',
     verified: true,
     gameId: 'lol',
-    gameName: 'League of Legends',
-    tier: 'Challenger',
+    gameName: 'Liên Minh Huyền Thoại',
+    tier: 'Thách Đấu',
     rating: 5.0,
     reviewCount: 1250,
     hourlyRate: 250000,
     tags: ['Macro', 'Shotcall'],
     online: true,
     quote: 'Kỹ năng đỉnh cao, tư duy kiểm soát bản đồ tuyệt đối',
-    image: '/images/companions/c05.jpg',
+    image: '/images/games/lol.webp',
+    avatar: '/images/avatars/av05.jpg',
   },
   {
     id: 'c06',
@@ -188,7 +215,8 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Co-op', 'Farm boss'],
     online: true,
     quote: 'Hướng dẫn build đồ chuẩn La Hoàn Thâm Cảnh',
-    image: '/images/companions/c06.jpg',
+    image: '/images/games/genshin.webp',
+    avatar: '/images/avatars/av01.jpg',
   },
   {
     id: 'c07',
@@ -204,7 +232,8 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Aimer', 'Entry'],
     online: true,
     quote: 'Aim cứng như bot, clutch đỉnh 1v3 trở lên cực cháy',
-    image: '/images/companions/c07.jpg',
+    image: '/images/games/cs2.webp',
+    avatar: '/images/avatars/av02.jpg',
   },
   {
     id: 'c08',
@@ -220,7 +249,8 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Squad', 'Rank up'],
     online: true,
     quote: 'Lái xe thần thánh, bắn tỉa AWM cực bén vào bo',
-    image: '/images/companions/c08.jpg',
+    image: '/images/games/pubg.webp',
+    avatar: '/images/avatars/av03.jpg',
   },
   {
     id: 'c09',
@@ -236,7 +266,8 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['DPS', 'Flex'],
     online: true,
     quote: 'Đồng đội nhiệt tình, bảo kê support và dồn dame chuẩn',
-    image: '/images/companions/c09.jpg',
+    image: '/images/games/overwatch2.webp',
+    avatar: '/images/avatars/av04.jpg',
   },
   {
     id: 'c10',
@@ -252,7 +283,8 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Duelist', 'Aim god'],
     online: true,
     quote: 'Bắn cháy máy, win streak chuỗi 15 trận liên tiếp',
-    image: '/images/companions/c10.jpg',
+    image: '/images/games/valorant.webp',
+    avatar: '/images/avatars/av05.jpg',
   },
   {
     id: 'c11',
@@ -268,7 +300,8 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Sniper', 'AWP'],
     online: true,
     quote: 'Bình tĩnh xử lý mọi tình huống nghẹt thở',
-    image: '/images/companions/c11.jpg',
+    image: '/images/games/cs2.webp',
+    avatar: '/images/avatars/av01.jpg',
   },
   {
     id: 'c12',
@@ -284,7 +317,8 @@ export const MOCK_COMPANIONS: MockCompanion[] = [
     tags: ['Initiator', 'Lineup'],
     online: true,
     quote: 'Học lineup miễn phí trọn bộ khi chơi cùng',
-    image: '/images/companions/c12.jpg',
+    image: '/images/games/valorant.webp',
+    avatar: '/images/avatars/av02.jpg',
   },
 ];
 
@@ -303,7 +337,7 @@ export const MOCK_REVIEWS: MockReview[] = [
     author: 'Thu Trang',
     avatar: '/images/avatars/av02.jpg',
     rating: 5,
-    gameName: 'League of Legends',
+    gameName: 'Liên Minh Huyền Thoại',
     role: 'Renter',
     content: 'Hệ thống ký quỹ rất an tâm, không sợ bị bùng tiền cọc hay quỵt giờ như trên các nhóm Facebook.',
   },
@@ -340,7 +374,7 @@ export const WHY_CHOOSE_ITEMS = [
   {
     id: 'escrow',
     title: 'Ký quỹ Escrow bảo vệ tiền',
-    desc: 'Tiền thuê được giữ an toàn 100% trong quỹ ký quỹ cho đến khi phiên chơi kết thúc và nghiệm thu hoàn tất.',
+    desc: 'Tiền thuê được giữ trong ví ký quỹ cho đến khi phiên chơi kết thúc và nghiệm thu hoàn tất.',
     iconName: 'ShieldCheck',
   },
   {

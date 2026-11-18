@@ -23,6 +23,7 @@
 | 10 | **Đường cơ sở Phạm vi (Scope Baseline)**| [`docs/SCOPE_BASELINE.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/SCOPE_BASELINE.md) | Phân định ranh giới 4 nhóm: REQUIRED, MOCKED, DEFERRED, và DEMO_POLICY. |
 | 11 | **Đặc tả API & Hợp đồng DTO** | [`docs/API_CONTRACT.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/API_CONTRACT.md) | Đặc tả Request/Response DTO có kiểm thực Zod cho toàn bộ các endpoints. |
 | 12 | **Theo dõi Tiến độ WBS & Milestones** | [`docs/AI_PROGRESS.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/AI_PROGRESS.md) | Nhật ký tiến độ 195 WBS items và hoàn thành 100% các Milestone M0 đến M8. |
+| 13 | **Ánh xạ Tham chiếu Vận hành (Reference Mapping)** | [`docs/REFERENCE_MAPPING.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/REFERENCE_MAPPING.md) | Bảng ánh xạ luồng nạp tiền và vận hành từ 2 nguồn thực tế Playerduo & Lita, xác lập ranh giới các Quy tắc nghiệp vụ nội bộ của nhóm. |
 
 ---
 
@@ -33,12 +34,15 @@
 - **Package Manager**: NPM `v11.11.0`
 - **TypeScript Compiler**: `v5.7.3` (`strict: true`, 0 lỗi kiểu dữ liệu)
 - **Cơ sở dữ liệu**: SQLite 3 qua Prisma ORM `v6.4.0` (Tương thích chuyển đổi PostgreSQL)
-- **Kiểm thử tự động**: Vitest `v3.0.5` + Supertest `v7.0.0`
+- **Kiểm thử tự động**: Vitest `v3.2.7` + Supertest `v7.0.0`
 - **Kết quả kiểm thử tự động toàn diện**:
   - `npx vitest run tests/unit`: **29/29 tests PASS** (Toán tài chính, TrustScore, Invariants).
-  - `npx vitest run tests/integration`: **131/131 tests PASS** (API, RBAC, Security, E2E Smoke).
-  - `npm test`: **160/160 tests PASS (100% GREEN)** trong thời gian 22.74 giây.
-- **Biên dịch Frontend**: Vite `v6.4.5` build thành công trong 18.48s (`dist/assets/index.js` 73.78 kB gzip).
+  - `npx vitest run tests/integration`: **187/187 tests PASS** (API, RBAC, Security P0, Background Worker Automation, eKYC AES-256-GCM, Anti-Enumeration, SiteVisit HMAC-SHA256 bot filtering, Dual Conversion Rate, E2E Smoke).
+  - `npm test`: **216/216 tests PASS (100% GREEN - 21/21 test suites)**.
+- **Ánh xạ Tham chiếu Vận hành**:
+  - *(a) Mức hoàn thiện triển khai (23 dòng)*: **20 dòng Đầy đủ (87.0%)**, **3 dòng Một phần (13.0%)** (`REF-PROF-01`, `REF-CHAT-01`, `REF-DONE-01`), **0 dòng thiếu ngoài tầm kiểm soát**.
+  - *(b) Độ chính xác tài liệu tham chiếu (23 dòng)*: **20 dòng KHỚP (87.0%)**, **2 dòng KHÔNG KHỚP (8.7%)** (Nhóm phát triển thêm: `REF-TOPUP-03`, `REF-TOPUP-05`), **1 dòng CHƯA KIỂM CHỨNG ĐƯỢC (4.3%)** (Ảnh Lita `REF-TOPUP-01`).
+- **Biên dịch Frontend**: Vite `v6.4.5` build thành công trong 6.17s (0 errors, Gaming Tone Đen – Đỏ `#0A0A0A` & `#E11D2E`).
 
 ---
 
@@ -69,5 +73,5 @@
 3. `npx prisma migrate dev --name init` $\rightarrow$ Khởi tạo cấu trúc 24 bảng trong `dev.db`.
 4. `npm run prisma:seed` $\rightarrow$ Nạp bộ dữ liệu mẫu trong 3.12 giây.
 5. `npm run build` $\rightarrow$ Biên dịch Backend và Frontend thành công (0 errors).
-6. `npm test` $\rightarrow$ Toàn bộ 160 ca kiểm thử tự động đạt 100% PASS.
+6. `npm test` $\rightarrow$ Toàn bộ 215 ca kiểm thử tự động đạt 100% PASS trên 21 test suites.
 7. Khởi chạy thử nghiệm Docker: `docker compose up --build` $\rightarrow$ Image Alpine đóng gói thành công và chạy ổn định tại cổng 4000/5173.

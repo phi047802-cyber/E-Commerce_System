@@ -11,8 +11,8 @@ COPY package*.json ./
 COPY client/package*.json ./client/
 
 # Install dependencies
-RUN npm ci
-RUN npm --prefix client ci
+RUN npm install
+RUN npm --prefix client install
 
 # Copy full project source
 COPY . .
@@ -33,4 +33,4 @@ ENV JWT_SECRET="instasquad_super_secret_jwt_demo_key_2026"
 ENV CLIENT_URL="http://localhost:5173"
 
 # Entrypoint: ensure migrations and seed are ready, then launch dev/start
-CMD ["sh", "-c", "npx prisma migrate deploy && tsx prisma/seed.ts && npm run dev"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run prisma:seed && npm run dev"]

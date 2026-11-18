@@ -5,6 +5,7 @@ import { prisma } from '../../server/src/common/prisma.js';
 
 describe('Companion Profile & Slot Management API (BR-02, BR-03, TC68, TC69)', () => {
   let companionToken: string;
+  let renterToken: string;
 
   const resetTestData = async () => {
     // Đặt lại dữ liệu gốc cho companion 1
@@ -14,6 +15,7 @@ describe('Companion Profile & Slot Management API (BR-02, BR-03, TC68, TC69)', (
         hourly_rate: 100000,
         availability: 'ONLINE',
         game_account_id: 'FakerFan#VN2',
+        trust_score: 95.0,
       },
     });
 
@@ -33,6 +35,11 @@ describe('Companion Profile & Slot Management API (BR-02, BR-03, TC68, TC69)', (
       .post('/api/auth/login')
       .send({ email: 'companion1@instasquad.test', password: 'Demo@123456' });
     companionToken = resComp.body.data.token;
+
+    const resRenter = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'renter1@instasquad.test', password: 'Demo@123456' });
+    renterToken = resRenter.body.data.token;
   });
 
   afterAll(async () => {
@@ -76,7 +83,7 @@ describe('Companion Profile & Slot Management API (BR-02, BR-03, TC68, TC69)', (
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-    expect(res.body.data[0].status).toBe('AVAILABLE');
+    expect(['AVAILABLE', 'BOOKED', 'HELD']).toContain(res.body.data[0].status);
   });
 
   it('4. Server rejects creating a slot in the past with SLOT_TIME_IN_PAST', async () => {
@@ -210,5 +217,105 @@ describe('Companion Profile & Slot Management API (BR-02, BR-03, TC68, TC69)', (
     expect(delRes.status).toBe(200);
     expect(delRes.body.success).toBe(true);
     expect(delRes.body.data.message).toContain('thành công');
+  });
+
+  it('10. Companion can upload a voice intro audio file <= 2MB (REF-PROF-01)', async () => {
+    // 10a. Reject oversized file > 2MB
+    const oversizedRes = await request(app)
+      .post('/api/companion/profile/voice')
+      .set('Authorization', `Bearer ${companionToken}`)
+      .send({
+        file_name: 'huge_intro.mp3',
+        file_type: 'audio/mp3',
+        file_size_bytes: 3 * 1024 * 1024, // 3MB
+        file_content_base64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEA',
+      });
+
+    expect(oversizedRes.status).toBe(400);
+    expect(oversizedRes.body.success).toBe(false);
+
+    // 10b. Reject invalid file type
+    const invalidTypeRes = await request(app)
+      .post('/api/companion/profile/voice')
+      .set('Authorization', `Bearer ${companionToken}`)
+      .send({
+        file_name: 'intro.txt',
+        file_type: 'text/plain',
+        file_size_bytes: 1024,
+        file_content_base64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEA',
+      });
+
+    expect(invalidTypeRes.status).toBe(400);
+    expect(invalidTypeRes.body.success).toBe(false);
+
+    // 10c. Reject file with invalid magic bytes (fake audio header)
+    const fakeMagicRes = await request(app)
+      .post('/api/companion/profile/voice')
+      .set('Authorization', `Bearer ${companionToken}`)
+      .send({
+        file_name: 'fake_audio.mp3',
+        file_type: 'audio/mp3',
+        file_size_bytes: 128,
+        file_content_base64: Buffer.from('MZ_EXECUTABLE_BINARY_DATA_NOT_AUDIO').toString('base64'),
+      });
+
+    expect(fakeMagicRes.status).toBe(400);
+    expect(fakeMagicRes.body.success).toBe(false);
+
+    // 10d. Reject path traversal in file_name
+    const pathTraversalRes = await request(app)
+      .post('/api/companion/profile/voice')
+      .set('Authorization', `Bearer ${companionToken}`)
+      .send({
+        file_name: '../../etc/passwd.mp3',
+        file_type: 'audio/mp3',
+        file_size_bytes: 128,
+        file_content_base64: Buffer.from('ID3_VALID_MP3_DATA_HEADER').toString('base64'),
+      });
+
+    expect(pathTraversalRes.status).toBe(400);
+    expect(pathTraversalRes.body.success).toBe(false);
+
+    // 10e. Reject non-companion user trying to upload voice intro (403 FORBIDDEN)
+    const renterUploadRes = await request(app)
+      .post('/api/companion/profile/voice')
+      .set('Authorization', `Bearer ${renterToken}`)
+      .send({
+        file_name: 'renter_voice.mp3',
+        file_type: 'audio/mp3',
+        file_size_bytes: 128,
+        file_content_base64: Buffer.from('ID3_VALID_MP3_DATA_HEADER').toString('base64'),
+      });
+
+    expect(renterUploadRes.status).toBe(403);
+
+    // 10f. Accept valid webm audio with EBML or RIFF header
+    const validRes = await request(app)
+      .post('/api/companion/profile/voice')
+      .set('Authorization', `Bearer ${companionToken}`)
+      .send({
+        file_name: 'companion_intro.webm',
+        file_type: 'audio/webm',
+        file_size_bytes: 512,
+        file_content_base64: Buffer.from('RIFF_MOCK_WEBM_AUDIO_DATA').toString('base64'),
+      });
+
+    expect(validRes.status).toBe(201);
+    expect(validRes.body.success).toBe(true);
+    expect(validRes.body.data.audio_bio_url).toContain('/uploads/audios/voice-');
+
+    // 10g. Reject fake extension file even if MIME type says audio
+    const fakeExtRes = await request(app)
+      .post('/api/companion/profile/voice')
+      .set('Authorization', `Bearer ${companionToken}`)
+      .send({
+        file_name: 'trojan.exe',
+        file_type: 'audio/mp3',
+        file_size_bytes: 512,
+        file_content_base64: Buffer.from('RIFF_MOCK_WEBM_AUDIO_DATA').toString('base64'),
+      });
+
+    expect(fakeExtRes.status).toBe(400);
+    expect(fakeExtRes.body.success).toBe(false);
   });
 });

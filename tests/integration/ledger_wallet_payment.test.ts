@@ -501,4 +501,142 @@ describe('Financial Module: Wallet, Double-Entry Ledger, Escrow & Payment Simula
 
     expect(resForbidden.status).toBe(403);
   });
+
+  // TC32: Webhook phát sinh LedgerAuditAlert khi sai số tiền hoặc trùng lặp (REF-TOPUP-08)
+  it('TC32: Webhook triggers LedgerAuditAlert on amount mismatch or duplicate replay (REF-TOPUP-08)', async () => {
+    // 1. Tạo một đơn nạp tiền
+    const createRes = await request(app)
+      .post('/api/payments/create-topup')
+      .set('Authorization', `Bearer ${renter1Token}`)
+      .send({ amount: 150000, provider: 'MOCK_VNPAY' });
+
+    expect(createRes.status).toBe(201);
+    const { payment_id, gateway_ref } = createRes.body.data;
+
+    // 2. Thử webhook với sai số tiền (100000 thay vì 150000)
+    const signMismatch = crypto
+      .createHmac('sha256', env.SIMULATOR_SECRET)
+      .update(`${gateway_ref}|100000|SUCCESS`)
+      .digest('hex');
+
+    const mismatchRes = await request(app)
+      .post('/api/payments/mock-webhook')
+      .set('X-Mock-Signature', signMismatch)
+      .send({
+        gateway_ref,
+        payment_id,
+        amount: 100000,
+        status: 'SUCCESS',
+        signature: signMismatch,
+      });
+
+    expect(mismatchRes.status).toBe(422);
+
+    // Xác minh alert WEBHOOK_AMOUNT_MISMATCH đã được lưu
+    const alertMismatch = await prisma.ledgerAuditAlert.findFirst({
+      where: { error_code: 'WEBHOOK_AMOUNT_MISMATCH' },
+      orderBy: { created_at: 'desc' },
+    });
+    expect(alertMismatch).toBeDefined();
+    expect(alertMismatch?.context_json).toContain(gateway_ref);
+
+    // 3. Thực hiện webhook đúng thành công
+    const signOk = crypto
+      .createHmac('sha256', env.SIMULATOR_SECRET)
+      .update(`${gateway_ref}|150000|SUCCESS`)
+      .digest('hex');
+
+    const okRes = await request(app)
+      .post('/api/payments/mock-webhook')
+      .set('X-Mock-Signature', signOk)
+      .send({
+        gateway_ref,
+        payment_id,
+        amount: 150000,
+        status: 'SUCCESS',
+        signature: signOk,
+      });
+
+    expect(okRes.status).toBe(200);
+
+    // 4. Thử replay duplicate webhook
+    const dupRes = await request(app)
+      .post('/api/payments/mock-webhook')
+      .set('X-Mock-Signature', signOk)
+      .send({
+        gateway_ref,
+        payment_id,
+        amount: 150000,
+        status: 'SUCCESS',
+        signature: signOk,
+      });
+
+    expect(dupRes.status).toBe(200);
+    expect(dupRes.body.meta.is_idempotent_replay).toBe(true);
+
+    // Xác minh alert WEBHOOK_DUPLICATE_REPLAY đã được lưu
+    const alertDup = await prisma.ledgerAuditAlert.findFirst({
+      where: { error_code: 'WEBHOOK_DUPLICATE_REPLAY' },
+      orderBy: { created_at: 'desc' },
+    });
+    expect(alertDup).toBeDefined();
+    expect(alertDup?.context_json).toContain(gateway_ref);
+  });
+
+  // TC33: Chống spam cảnh báo sổ cái: gửi 3 webhook trùng lặp chỉ tạo 1 dòng cảnh báo với repeat_count = 3
+  it('TC33: Repeated duplicate webhook replays coalesce into a single alert row with repeat_count incremented', async () => {
+    // 1. Tạo đơn nạp tiền
+    const createRes = await request(app)
+      .post('/api/payments/create-topup')
+      .set('Authorization', `Bearer ${renter1Token}`)
+      .send({ amount: 250000, provider: 'MOCK_VNPAY' });
+
+    expect(createRes.status).toBe(201);
+    const { payment_id, gateway_ref } = createRes.body.data;
+
+    const signature = crypto
+      .createHmac('sha256', env.SIMULATOR_SECRET)
+      .update(`${gateway_ref}|250000|SUCCESS`)
+      .digest('hex');
+
+    // 2. Gửi webhook lần đầu (Ghi nhận thành công)
+    const res1 = await request(app)
+      .post('/api/payments/mock-webhook')
+      .set('X-Mock-Signature', signature)
+      .send({
+        gateway_ref,
+        payment_id,
+        amount: 250000,
+        status: 'SUCCESS',
+        signature,
+      });
+    expect(res1.status).toBe(200);
+
+    // 3. Gửi 3 webhook trùng lặp liên tiếp
+    for (let i = 0; i < 3; i++) {
+      const resDup = await request(app)
+        .post('/api/payments/mock-webhook')
+        .set('X-Mock-Signature', signature)
+        .send({
+          gateway_ref,
+          payment_id,
+          amount: 250000,
+          status: 'SUCCESS',
+          signature,
+        });
+      expect(resDup.status).toBe(200);
+      expect(resDup.body.meta.is_idempotent_replay).toBe(true);
+    }
+
+    // 4. Kiểm tra trong DB: chỉ có đúng 1 dòng alert cho gateway_ref này, repeat_count = 3
+    const alerts = await prisma.ledgerAuditAlert.findMany({
+      where: {
+        error_code: 'WEBHOOK_DUPLICATE_REPLAY',
+        context_json: { contains: gateway_ref },
+      },
+    });
+
+    expect(alerts.length).toBe(1);
+    expect(alerts[0].repeat_count).toBe(3);
+  });
 });

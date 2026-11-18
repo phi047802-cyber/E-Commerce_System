@@ -4,46 +4,48 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Be Vietnam Pro"', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Inter"', '"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
       },
       colors: {
-        game: {
-          bg: '#0A0A1F',
-          surface: '#12122A',
-          card: '#15152E',
-          cardHover: '#1B1B3D',
-          border: 'rgba(255, 255, 255, 0.08)',
-          borderHover: 'rgba(168, 85, 247, 0.4)',
+        app: {
+          bg: '#0A0A0A',
+          surface: '#141414',
+          elevated: '#1C1C1C',
+          border: '#2A2A2A',
+          red: {
+            DEFAULT: '#E11D2E',
+            hover: '#B91C1C',
+            badge: 'rgba(225, 29, 46, 0.12)',
+          },
+          text: {
+            heading: '#FFFFFF',
+            secondary: '#A3A3A3',
+            muted: '#6B6B6B',
+          },
+          status: {
+            green: '#22C55E',
+            yellow: '#FACC15',
+            orange: '#F59E0B',
+          },
         },
-        brand: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          500: '#7C3AED',
-          600: '#6D28D9',
-          700: '#5B21B6',
-          900: '#4C1D95',
-          purple: '#7C3AED',
-          violet: '#A855F7',
-          pink: '#EC4899',
-          cyan: '#22D3EE',
-          online: '#22C55E',
-          star: '#FACC15',
-        },
-      },
-      boxShadow: {
-        'glow-purple': '0 0 25px -5px rgba(168, 85, 247, 0.4)',
-        'glow-purple-lg': '0 0 35px -5px rgba(124, 58, 237, 0.5)',
-        'glow-cyan': '0 0 20px -5px rgba(34, 211, 238, 0.4)',
-        'card': '0 8px 30px rgba(0, 0, 0, 0.4)',
       },
       borderRadius: {
-        '2xl': '1rem',
-        '3xl': '1.5rem',
+        'button': '8px',
+        'card': '12px',
+        'frame': '24px',
       },
       animation: {
-        'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'fade-in': 'fadeIn 0.2s ease-in-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
     },
   },
   plugins: [],
 };
+
+

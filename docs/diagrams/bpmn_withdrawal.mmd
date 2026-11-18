@@ -1,0 +1,26 @@
+flowchart TD
+    Start([Bắt đầu: Companion có nhu cầu rút tiền]) --> Step1[Bước 1: Companion gửi yêu cầu rút tiền]
+    Step1 --> Step2{Bước 2: Hệ thống kiểm tra số dư khả dụng}
+    
+    Step2 -- "Số dư không đủ" --> Step2_Fail[Báo lỗi số dư không đủ & Kết thúc]
+    Step2_Fail --> EndFail([Kết thúc: Yêu cầu bị hủy])
+
+    Step2 -- "Số dư hợp lệ" --> Step3[Bước 3: Phong tỏa số dư qua Sổ cái kép WITHDRAW_RESERVE]
+    Step3 --> Step4[Bước 4: Tạo hồ sơ rút tiền PENDING & Che mặt nạ số tài khoản]
+    Step4 --> Step5{Bước 5: Admin thẩm định yêu cầu rút tiền}
+
+    Step5 -- "Duyệt yêu cầu" --> Step6[Bước 6: Tạo mã chuyển khoản mô phỏng SIM-PO]
+    Step6 --> Step7[Bước 7: Chuyển trạng thái COMPLETED & Ghi nhận AuditLog]
+    Step7 --> Step8[Bước 8: Thông báo tất toán thành công cho Companion]
+    Step8 --> EndSuccess([Kết thúc: Rút tiền thành công])
+
+    Step5 -- "Từ chối yêu cầu" --> Step9[Bước 9: Ghi nhận lý do từ chối của Admin]
+    Step9 --> Step10[Bước 10: Bút toán đảo WITHDRAW_REJECT hoàn tiền về ví khả dụng]
+    Step10 --> Step11[Bước 11: Cập nhật trạng thái REJECTED & Ghi nhận AuditLog]
+    Step11 --> Step12[Bước 12: Thông báo lý do từ chối cho Companion]
+    Step12 --> EndReject([Kết thúc: Tiền được hoàn trả an toàn])
+
+    subgraph ErrorHandling ["Cơ chế bảo vệ giao dịch & Hoàn tác (Rollback)"]
+        ErrCheck{"Phát sinh lỗi kỹ thuật?"} -- "Có lỗi" --> Rollback[Hoàn tác toàn bộ thay đổi database & Phát cảnh báo]
+        Rollback --> EndErr([Kết thúc: An toàn dòng tiền])
+    end

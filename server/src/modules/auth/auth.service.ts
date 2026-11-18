@@ -2,11 +2,32 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../common/prisma.js';
 import { env } from '../../config/env.js';
-import { ConflictError, UnauthorizedError, NotFoundError } from '../../common/errors.js';
-import { RegisterInput, LoginInput } from './auth.dto.js';
+import { ConflictError, UnauthorizedError, NotFoundError, BusinessError } from '../../common/errors.js';
+import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput, SendVerifyOtpInput, VerifyEmailInput } from './auth.dto.js';
+import { emailService } from './email.service.js';
 
 export class AuthService {
   async register(input: RegisterInput) {
+    if (input.is_over_18 === false) {
+      throw new BusinessError('UNDERAGE_REGISTRATION', 'Người dùng phải đủ 18 tuổi để tham gia nền tảng.');
+    }
+
+    if (input.date_of_birth) {
+      const dob = new Date(input.date_of_birth);
+      if (isNaN(dob.getTime())) {
+        throw new BusinessError('INVALID_BIRTHDATE', 'Ngày sinh không hợp lệ.');
+      }
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+      if (age < 18) {
+        throw new BusinessError('UNDERAGE_REGISTRATION', 'Người dùng phải từ đủ 18 tuổi trở lên để tham gia nền tảng.');
+      }
+    }
+
     const existing = await prisma.user.findUnique({
       where: { email: input.email.toLowerCase() },
     });
@@ -27,6 +48,7 @@ export class AuthService {
           display_name: input.display_name,
           role: input.role,
           phone_number: input.phone_number,
+          is_email_verified: false,
         },
       });
 
@@ -37,6 +59,19 @@ export class AuthService {
           escrow_balance: 0,
         },
       });
+
+      // Tạo CompanionProfile ở trạng thái INCOMPLETE nếu đăng ký vai trò COMPANION (Section B.1)
+      if (input.role === 'COMPANION') {
+        await tx.companionProfile.create({
+          data: {
+            user_id: newUser.user_id,
+            profile_status: 'INCOMPLETE',
+            availability: 'OFFLINE',
+            trust_score: 80.0,
+            verification_status: 'UNVERIFIED',
+          },
+        });
+      }
 
       return newUser;
     });
@@ -55,6 +90,7 @@ export class AuthService {
         email: user.email,
         display_name: user.display_name,
         role: user.role,
+        avatar_url: user.avatar_url,
         created_at: user.created_at,
       },
     };
@@ -97,6 +133,8 @@ export class AuthService {
         display_name: user.display_name,
         role: user.role,
         status: user.status,
+        avatar_url: user.avatar_url,
+        is_email_verified: user.is_email_verified,
         wallet: user.wallet
           ? {
               available_balance: user.wallet.available_balance,
@@ -123,6 +161,8 @@ export class AuthService {
         display_name: true,
         role: true,
         status: true,
+        avatar_url: true,
+        is_email_verified: true,
         created_at: true,
         wallet: {
           select: {
@@ -149,6 +189,89 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async forgotPassword(input: ForgotPasswordInput) {
+    const normalizedEmail = input.email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      // Chống dò quét tài khoản (Anti-enumeration): trả về cùng thông điệp thành công
+      return {
+        message: 'Nếu email tồn tại trong hệ thống, mã xác nhận OTP đã được gửi.',
+      };
+    }
+
+    const result = await emailService.createAndSendOtp(normalizedEmail, 'FORGOT_PASSWORD');
+    return {
+      message: 'Nếu email tồn tại trong hệ thống, mã xác nhận OTP đã được gửi.',
+      simulated_otp: result.simulated_otp,
+    };
+  }
+
+  async resetPassword(input: ResetPasswordInput) {
+    const normalizedEmail = input.email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      throw new NotFoundError('Không tìm thấy tài khoản với email này.');
+    }
+
+    await emailService.verifyOtp(normalizedEmail, 'FORGOT_PASSWORD', input.otp);
+
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(input.new_password, salt);
+
+    await prisma.user.update({
+      where: { user_id: user.user_id },
+      data: { password_hash },
+    });
+
+    return { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' };
+  }
+
+  async sendVerificationOtp(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user || user.is_email_verified) {
+      // Chống dò quét tài khoản (Anti-enumeration): trả về cùng thông điệp thành công
+      return {
+        message: 'Nếu email tồn tại trong hệ thống và chưa xác minh, mã xác nhận OTP đã được gửi.',
+      };
+    }
+
+    const result = await emailService.createAndSendOtp(normalizedEmail, 'EMAIL_VERIFICATION');
+    return {
+      message: 'Nếu email tồn tại trong hệ thống và chưa xác minh, mã xác nhận OTP đã được gửi.',
+      simulated_otp: result.simulated_otp,
+    };
+  }
+
+  async verifyEmail(input: VerifyEmailInput) {
+    const normalizedEmail = input.email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      throw new NotFoundError('Không tìm thấy tài khoản với email này.');
+    }
+
+    await emailService.verifyOtp(normalizedEmail, 'EMAIL_VERIFICATION', input.otp);
+
+    await prisma.user.update({
+      where: { user_id: user.user_id },
+      data: { is_email_verified: true },
+    });
+
+    return { message: 'Xác minh email thành công!', is_email_verified: true };
   }
 
   private generateToken(payload: { user_id: string; email: string; role: string; display_name: string }) {

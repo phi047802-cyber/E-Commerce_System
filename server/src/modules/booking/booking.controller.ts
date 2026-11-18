@@ -1,10 +1,15 @@
 import { Request, Response } from 'express';
 import { bookingService } from './booking.service.js';
 import { sendSuccess } from '../../common/response.js';
-import { ValidationError } from '../../common/errors.js';
+import { ValidationError, ForbiddenError } from '../../common/errors.js';
 
 export async function handleCreateBooking(req: Request, res: Response): Promise<void> {
   const renterId = req.user!.user_id;
+  const userRole = req.user!.role;
+
+  if (['ADMIN', 'CS_AGENT', 'AUDITOR'].includes(userRole)) {
+    throw new ForbiddenError('Tài khoản quản trị/vận hành không được thực hiện đặt đơn thuê companion.');
+  }
 
   // Hỗ trợ request_key từ request body hoặc từ HTTP headers Idempotency-Key / X-Request-Key
   const requestKey =
@@ -81,9 +86,10 @@ export async function handleRejectBooking(req: Request, res: Response): Promise<
 
 export async function handleTimeoutBooking(req: Request, res: Response): Promise<void> {
   const actorId = req.user?.user_id;
+  const actorRole = req.user?.role;
   const { id } = req.params;
 
-  const result = await bookingService.handleTimeout(id, actorId);
+  const result = await bookingService.handleTimeout(id, actorId, actorRole);
   sendSuccess(res, result, 200, {
     is_idempotent_replay: result.is_idempotent_replay,
   });
@@ -113,10 +119,12 @@ export async function handleAcceptFulfillment(req: Request, res: Response): Prom
 }
 
 export async function handleAutoAccept(req: Request, res: Response): Promise<void> {
+  const actorId = req.user?.user_id;
+  const actorRole = req.user?.role;
   const { id } = req.params;
-  const simulatedNow = req.body?.simulated_now ? new Date(req.body.simulated_now) : undefined;
 
-  const result = await bookingService.autoAccept(id, simulatedNow);
+  // P0-1 & P0-2: Production server clock only; authorization enforced
+  const result = await bookingService.autoAccept(id, actorId, actorRole);
   sendSuccess(res, result, 200, {
     is_idempotent_replay: result.is_idempotent_replay,
   });

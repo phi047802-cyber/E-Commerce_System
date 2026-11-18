@@ -108,7 +108,7 @@ export class ReconciliationService {
     const totalReservedWithdrawals = reservedWithdrawals.reduce((sum, w) => sum + w.amount, 0);
 
     const successfulPayments = await prisma.payment.findMany({
-      where: { status: 'SUCCESS' },
+      where: { status: { in: ['SUCCESS', 'LATE'] } },
     });
     const totalDeposited = successfulPayments.reduce((sum, p) => sum + p.amount, 0);
 

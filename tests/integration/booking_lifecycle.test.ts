@@ -64,12 +64,30 @@ describe('Booking Lifecycle & Response Deadlines: 180s Timeout & Pre-Session Can
       data: { available_balance: 0, escrow_balance: 0 },
     });
     await prisma.wallet.update({
+      where: { wallet_id: 'w-comp-02' },
+      data: { available_balance: 0, escrow_balance: 0 },
+    });
+    await prisma.wallet.update({
       where: { wallet_id: SYSTEM_ACCOUNTS.CLEARING_WALLET_ID },
       data: { available_balance: -500000, escrow_balance: 0 },
     });
     await prisma.wallet.update({
       where: { wallet_id: SYSTEM_ACCOUNTS.PLATFORM_REVENUE_WALLET_ID },
       data: { available_balance: 0, escrow_balance: 0 },
+    });
+    await prisma.wallet.deleteMany({
+      where: {
+        wallet_id: {
+          notIn: [
+            'w-renter-01',
+            'w-renter-02',
+            'w-comp-01',
+            'w-comp-02',
+            SYSTEM_ACCOUNTS.CLEARING_WALLET_ID,
+            SYSTEM_ACCOUNTS.PLATFORM_REVENUE_WALLET_ID,
+          ],
+        },
+      },
     });
 
     // Reset Companion Profile về điểm 95.0 và rate 100k
@@ -478,11 +496,11 @@ describe('Booking Lifecycle & Response Deadlines: 180s Timeout & Pre-Session Can
     });
     expect(platRev).toBeDefined();
 
-    // Lịch sử ghi nhận nhãn [DEMO_POLICY - APPROVED]
+    // Lịch sử ghi nhận lý do hủy gấp dưới 10 phút
     const history = await prisma.bookingStatusHistory.findFirst({
       where: { booking_id: bookingId, to_status: 'CANCELLED' },
     });
-    expect(history?.reason).toContain('[DEMO_POLICY - APPROVED]');
+    expect(history?.reason).toContain('Hủy gấp dưới 10 phút');
   });
 
   it('TC27: Cancel after start time is strictly forbidden with 422 SESSION_ALREADY_STARTED (Demo Policy 11)', async () => {

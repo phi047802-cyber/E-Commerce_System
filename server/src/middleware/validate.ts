@@ -2,14 +2,18 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodTypeAny, ZodError } from 'zod';
 import { ValidationError } from '../common/errors.js';
 
-export function validateBody(schema: ZodTypeAny) {
+export function validateBody(schema: ZodTypeAny, statusCode: number = 400) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       req.body = await schema.parseAsync(req.body);
       next();
     } catch (err) {
       if (err instanceof ZodError) {
-        next(new ValidationError('Dữ liệu đầu vào không hợp lệ', err.errors));
+        const errorDetails = err.errors.map((e) => {
+          const field = e.path.join('.') || 'body';
+          return `${field}: ${e.message}`;
+        }).join(', ');
+        next(new ValidationError(`Dữ liệu đầu vào không hợp lệ: ${errorDetails}`, err.errors, statusCode));
       } else {
         next(err);
       }

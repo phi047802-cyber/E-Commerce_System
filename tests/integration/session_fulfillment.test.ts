@@ -51,17 +51,12 @@ describe('Session, Game Room, Chat Censorship & 15-Minute Acceptance (M6 - PROMP
     });
 
     // 3. Khôi phục số dư chuẩn xác
+    await prisma.wallet.updateMany({
+      data: { available_balance: 0, escrow_balance: 0, penalty_debt: 0 },
+    });
     await prisma.wallet.update({
       where: { wallet_id: 'w-renter-01' },
       data: { available_balance: 500000, escrow_balance: 0 },
-    });
-    await prisma.wallet.update({
-      where: { wallet_id: 'w-renter-02' },
-      data: { available_balance: 0, escrow_balance: 0 },
-    });
-    await prisma.wallet.update({
-      where: { wallet_id: 'w-comp-01' },
-      data: { available_balance: 0, escrow_balance: 0 },
     });
     await prisma.wallet.update({
       where: { wallet_id: SYSTEM_ACCOUNTS.CLEARING_WALLET_ID },
@@ -437,7 +432,7 @@ describe('Session, Game Room, Chat Censorship & 15-Minute Acceptance (M6 - PROMP
       const history = await prisma.bookingStatusHistory.findFirst({
         where: { booking_id: bookingId, to_status: 'COMPLETED' },
       });
-      expect(history?.reason).toContain('SYSTEM_AUTO_ACCEPT_TIMEOUT');
+      expect(history?.reason).toContain('Tự động nghiệm thu sau 15 phút');
     });
 
     it('TC41: Auto-accept is rejected if 15-minute deadline has not elapsed', async () => {

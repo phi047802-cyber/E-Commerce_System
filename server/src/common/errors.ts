@@ -44,7 +44,7 @@ export class ConflictError extends AppError {
 }
 
 export class ValidationError extends AppError {
-  constructor(message = 'Input validation failed', details?: unknown) {
-    super(400, 'VALIDATION_ERROR', message, details);
+  constructor(message = 'Input validation failed', details?: unknown, statusCode = 400) {
+    super(statusCode, 'VALIDATION_ERROR', message, details);
   }
 }

@@ -49,11 +49,13 @@
 
 ### CHƯƠNG 1: TỔNG QUAN ĐỀ TÀI VÀ XÁC ĐỊNH PHẠM VI
 
-#### 1.1. Bối cảnh thị trường
+#### 1.1. Bối cảnh thị trường & Nguồn tham chiếu vận hành thực tế
 Thương mại điện tử dịch vụ kết nối người chơi game đồng hành (Game Companion / Co-play) đang phát triển nhanh chóng tại Châu Á và Việt Nam. Tuy nhiên, hình thức giao dịch tự phát hiện nay trên mạng xã hội tiềm ẩn rủi ro rất lớn:
 - Người thuê chuyển khoản trước dễ bị Companion bùng kèo, chặn liên lạc.
 - Companion cung cấp dịch vụ xong dễ bị người thuê quỵt tiền hoặc báo cáo gian lận với ngân hàng.
 - Thiếu cơ chế trung gian giám sát phiên chơi, đánh giá kỹ năng và xử lý khiếu nại minh bạch.
+
+Nhằm bảo đảm tính thực tiễn cao, hệ thống INSTASQUAD tiến hành đối chiếu cách vận hành (luồng nạp tiền, đặt lịch, hồ sơ, rút tiền...) với **HAI nền tảng C2C Game Companion thực tế** là **Playerduo** (Việt Nam) và **Lita** (Đông Nam Á) theo tài liệu [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md). Đồng thời, các quy tắc nghiệp vụ cốt lõi (180s, 15m nghiệm thu, 88/12, phạt hủy bậc thang, RMA 80%, trần 10h/ngày, Sổ cái kép) được bảo toàn độc lập theo Project Charter và BPMN của nhóm.
 
 #### 1.2. Vấn đề nghiên cứu & Thách thức kỹ thuật
 Đề tài tập trung giải quyết 4 bài toán kỹ thuật trọng điểm trong giao dịch C2C:
@@ -143,13 +145,18 @@ $$\text{PlatformFee} + \text{CompanionFee} \equiv \text{TotalFee}$$
 
 ### CHƯƠNG 5: KIỂM THỬ ĐỘC LẬP, BẢO MẬT VÀ ĐỐI SOÁT TÀI CHÍNH
 
-- **Tổng số ca kiểm thử**: 160/160 tests PASS (100% GREEN) trên 16 test files.
+- **Tổng số ca kiểm thử**: **228/228 tests PASS (100% GREEN) trên 22 test files** (bao gồm 19 integration test suites với 199 tests, 3 unit test suites với 29 tests; kiểm thử trọn vẹn xác thực độ tuổi 18+, tải lên voice bio, eKYC AES-256-GCM, Anti-Enumeration, lọc bot & băm HMAC IP cho SiteVisit, Dual Conversion Rate và Sổ cái kép).
+- **Ánh xạ tham chiếu vận hành (Playerduo & Lita)**:
+  - *(a) Mức hoàn thiện triển khai (28 dòng REF)*: **25 dòng Đầy đủ (89.3%)**, **2 dòng Một phần (7.1%)** (`REF-CHAT-01`, `REF-TAX-01`), **1 dòng Chưa có / Chưa đáp ứng (3.6%)** (`REF-AUTH-03` – Google OAuth2), **0 dòng thiếu ngoài tầm kiểm soát**.
+  - *(b) Độ chính xác tài liệu tham chiếu (28 dòng REF)*: **24 dòng KHỚP (85.7%)**, **3 dòng KHÁC NGUỒN (10.7%)** (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`), **1 dòng CHƯA KIỂM CHỨNG ĐƯỢC (3.6%)** (Ảnh Lita nút Nạp Xu `REF-TOPUP-01` chưa có tệp trên đĩa).
+  - *(c) Phân loại theo Loại thiết kế (28 dòng REF)*: **23 dòng LẤY THEO NGUỒN (82.1%)**, **2 dòng NHÓM PHÁT TRIỂN THÊM (7.1%)** (`REF-TOPUP-03`, `REF-TOPUP-05`), **3 dòng KHÁC NGUỒN (10.7%)** (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`).
 - **Bao phủ 70/70 Acceptance Tests** từ WBS: Không có test nào bị bỏ qua hoặc đánh giá sai sự thật.
 - **Kiểm tra an toàn bảo mật**:
   - Không có lỗ hổng SQL Injection (100% parameterized qua ORM).
   - Phòng chống triệt để lỗ hổng IDOR trên đơn đặt lịch, phòng chat, khiếu nại và ví tiền.
   - Loại bỏ hoàn toàn trường `password_hash` và thông tin thẻ nhạy cảm khỏi kết quả API.
   - Giới hạn tệp tải lên tối đa 2MB, danh sách trắng định dạng ảnh/log, tên file băm UUID ngẫu nhiên.
+  - Khắc phục triệt để lỗ hổng giả mạo actor nội bộ `SYSTEM` và tham số `simulated_now`.
 - **Đối soát Sổ cái kép**: Kiểm toán đối soát toàn bộ hệ thống xác nhận độ lệch phương sai bằng 0 ($\text{Variance} \equiv 0$).
 
 ---
@@ -157,13 +164,13 @@ $$\text{PlatformFee} + \text{CompanionFee} \equiv \text{TotalFee}$$
 ### CHƯƠNG 6: KẾT LUẬN, GIỚI HẠN VÀ HƯỚNG PHÁT TRIỂN
 
 #### 6.1. Kết luận
-Đồ án đã xây dựng thành công một nền tảng thương mại điện tử dịch vụ C2C hoàn chỉnh, giải quyết xuất sắc các bài toán phức tạp về an toàn tài chính, tính đồng thời và quy trình phân xử khiếu nại.
+Đồ án đã xây dựng thành công một nền tảng thương mại điện tử dịch vụ C2C hoàn chỉnh, giải quyết xuất sắc các bài toán phức tạp về an toàn tài chính, tính đồng thời, tự động hóa chu kỳ hạn mức và quy trình phân xử khiếu nại minh bạch.
 
 #### 6.2. Giới hạn hệ thống
 1. Hệ thống sử dụng SQLite cục bộ phục vụ demo zero-config; chưa tối ưu cho tải ghi cực lớn (>1.000 req/s).
-2. Các mốc hẹn giờ 180s và 15m hiện được quét tại thời điểm request API thay vì sử dụng background daemon riêng biệt.
+2. Kênh gọi thoại/video trực tiếp được hoãn lại (DEFERRED), tập trung vào chat text nội bộ có bộ lọc regex.
 
 #### 6.3. Hướng phát triển cho môi trường Production
 1. Chuyển đổi tầng lưu trữ sang PostgreSQL với cơ chế Row-level locking (`SELECT ... FOR UPDATE`) và Connection Pooling (PgBouncer).
-2. Tích hợp Background Job Runner độc lập (BullMQ + Redis) để kích hoạt tự động các bộ hẹn giờ.
+2. Nâng cấp Background Automation Engine từ worker đơn tiến trình nội bộ sang cụm Worker phân tán (BullMQ + Redis cluster) để điều phối tải đa server.
 3. Bổ sung Rate Limiting ở tầng API Gateway để ngăn chặn tấn công từ chối dịch vụ (DDoS).

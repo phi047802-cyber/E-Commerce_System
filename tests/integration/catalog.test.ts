@@ -1,8 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../../server/src/server.js';
+import { prisma } from '../../server/src/common/prisma.js';
 
 describe('Catalog & Companion Discovery API', () => {
+  beforeAll(async () => {
+    await prisma.companionProfile.update({
+      where: { profile_id: 'prof-comp-01' },
+      data: { trust_score: 95.0 },
+    });
+  });
   it('GET /api/games should return active games with skill tiers', async () => {
     const res = await request(app).get('/api/games');
 

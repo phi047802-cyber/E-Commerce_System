@@ -9,7 +9,7 @@ Tài liệu này đóng vai trò là **Baseline yêu cầu nghiệp vụ** cho m
 Mọi quy tắc và hành vi hệ thống được gắn thẻ minh bạch theo 4 nhóm:
 1. `[NGUỒN GỐC]` *(Source of Truth)*: Yêu cầu được nêu tường minh trong `BT3_INSTASQUAD.pdf`, `INSTASQUAD_BPMN_TKHT.pdf` hoặc workbook `INSTASQUAD_WBS_Detailed.xlsx`.
 2. `[SUY LUẬN KỸ THUẬT]` *(Engineering Inferences)*: Các cơ chế kỹ thuật bắt buộc phải có để hệ thống chạy ổn định và an toàn (Transaction, Idempotency lock, Database schema bổ sung, Regex filter).
-3. `[QUYẾT ĐỊNH MỞ]` *(Open PO Decision)*: Các điểm nghiệp vụ nguồn còn bỏ ngỏ hoặc ghi chú "Cần PO xác nhận".
+3. `[QUYẾT ĐỊNH ĐÃ CHỐT]` *(Finalized Group Decisions)*: Các điểm nghiệp vụ nguồn còn bỏ ngỏ hoặc ghi chú "Cần PO xác nhận" đã được nhóm chốt chính thức qua bộ quyết định D21–D27 (`NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định`).
 4. `[DEMO POLICY]` *(Chính sách Demo Sinh viên)*: Các quy ước an toàn được PO/Người dùng phê duyệt phục vụ môi trường demo học thuật, có thể cấu hình được.
 
 ---

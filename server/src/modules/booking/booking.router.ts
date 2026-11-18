@@ -21,7 +21,7 @@ import {
   rejectBookingSchema, 
   cancelBookingSchema 
 } from './booking.dto.js';
-import { reportIssueSchema } from '../session/session.dto.js';
+import { reportIssueSchema, autoAcceptSchema } from '../session/session.dto.js';
 
 export const bookingRouter = Router();
 
@@ -30,6 +30,7 @@ bookingRouter.use(authenticate);
 
 bookingRouter.post('/', validateBody(createBookingSchema), asyncHandler(handleCreateBooking));
 bookingRouter.get('/', asyncHandler(handleListMyBookings));
+bookingRouter.get('/my-bookings', asyncHandler(handleListMyBookings));
 bookingRouter.get('/:id', asyncHandler(handleGetBookingById));
 bookingRouter.post('/:id/hold-escrow', asyncHandler(handleHoldEscrow));
 bookingRouter.post('/:id/accept', asyncHandler(handleAcceptBooking));
@@ -37,7 +38,7 @@ bookingRouter.post('/:id/reject', validateBody(rejectBookingSchema), asyncHandle
 bookingRouter.post('/:id/timeout', asyncHandler(handleTimeoutBooking));
 bookingRouter.post('/:id/cancel', validateBody(cancelBookingSchema), asyncHandler(handleCancelBooking));
 bookingRouter.post('/:id/accept-fulfillment', asyncHandler(handleAcceptFulfillment));
-bookingRouter.post('/:id/auto-accept', asyncHandler(handleAutoAccept));
+bookingRouter.post('/:id/auto-accept', validateBody(autoAcceptSchema), asyncHandler(handleAutoAccept));
 bookingRouter.post('/:id/report-issue', validateBody(reportIssueSchema), asyncHandler(handleReportIssue));
 bookingRouter.get('/:id/dispute', asyncHandler(handleGetDispute));
 

@@ -21,7 +21,7 @@ Tài liệu này quy định các **chính sách vận hành tạm thời (Stude
 ---
 
 ### 2. Tự động nghiệm thu sau 15 phút im lặng (Auto-Accept)
-- **Khoảng trống nguồn**: BPMN ghi nhận thời hạn 15 phút nhưng chú thích: *"Tự động nghiệm thu là đề xuất của nhóm... cần PO xác nhận"*.
+- **Khoảng trống nguồn**: BPMN ghi nhận thời hạn 15 phút nhưng chú thích: *"Tự động nghiệm thu là đề xuất của nhóm... cần PO xác nhận"*. [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định] (D24).
 - **Quy tắc Demo Policy**:
   - Hết 15 phút sau khi phiên chơi kết thúc, nếu Renter không bấm "Hoàn tất" cũng không bấm "Báo sự cố", hệ thống tự động chuyển trạng thái đơn hàng sang `COMPLETED`, giải ngân 88/12 cho Companion và ghi nhận lý do: `SYSTEM_AUTO_ACCEPT_TIMEOUT`.
   - **Điều kiện an toàn**: Chỉ áp dụng khi phiên chơi đã kết thúc đúng giờ và có phát sinh tin nhắn trong phòng chat.
@@ -31,7 +31,7 @@ Tài liệu này quy định các **chính sách vận hành tạm thời (Stude
 ---
 
 ### 3. Phân bổ khoản phạt khi Renter hủy đơn dưới 10 phút
-- **Khoảng trống nguồn**: BPMN ghi rõ chưa biết khoản phạt 100% khi hủy sát giờ (< 10 phút) chia cho Companion và nền tảng thế nào.
+- **Khoảng trống nguồn**: BPMN ghi rõ chưa biết khoản phạt 100% khi hủy sát giờ (< 10 phút) chia cho Companion và nền tảng thế nào. [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định] (D21).
 - **Quy tắc Demo Policy**:
   - Áp dụng nhất quán tỷ lệ chia sẻ doanh thu chuẩn **88/12**:
     - **88%** số tiền phạt chuyển vào ví khả dụng của Companion (`available_balance`) để đền bù 100% thu nhập dự kiến cho thời gian chờ.
@@ -45,11 +45,11 @@ Tài liệu này quy định các **chính sách vận hành tạm thời (Stude
 ### 4. Thu khoản phạt 20% khi Companion lỗi $\ge 80\%$ (Chống âm ví)
 - **Khoảng trống nguồn**: BPMN quy định phạt Companion thêm 20% giá trị đơn hàng nhưng chưa nói trừ từ ví nào và chuyển cho ai; nguy cơ làm số dư ví bị âm.
 - **Quy tắc Demo Policy**:
-  - **Người nhận**: Khoản phạt 20% được chuyển toàn bộ cho Renter để bồi thường thiệt hại trải nghiệm.
+  - **Người nhận & Hạch toán**: Theo quyết định D22 [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định], Renter được hoàn 100% Escrow; khoản phạt 20% trừ từ ví khả dụng của Companion được nộp về doanh thu nền tảng (`PLATFORM_REVENUE_WALLET_ID`, loại phạt vi phạm).
   - **Cơ chế trừ tiền an toàn**:
     1. Kiểm tra `available_balance` của Companion.
-    2. Nếu số dư $\ge 20\%$ đơn hàng: Trừ trực tiếp qua Ledger chuyển sang ví Renter.
-    3. Nếu số dư $< 20\%$ đơn hàng: Trừ hết số dư khả dụng hiện có, phần còn thiếu ghi nhận vào bảng công nợ phạt `PENALTY_DEBT`. Số tiền nợ sẽ được tự động cấn trừ vào các khoản giải ngân của những đơn hàng tiếp theo.
+    2. Nếu số dư $\ge 20\%$ đơn hàng: Trừ trực tiếp qua Ledger ghi có doanh thu nền tảng.
+    3. Nếu số dư $< 20\%$ đơn hàng: Trừ hết số dư khả dụng hiện có (về 0), phần còn thiếu ghi nhận vào trường công nợ phạt `wallet.penalty_debt`. Số tiền nợ sẽ được tự động cấn trừ vào thu nhập của các đơn hàng hoàn tất tiếp theo.
     4. **Tuyệt đối không cập nhật số dư ví thành số âm** (`CHECK available_balance >= 0`).
 - **Biến cấu hình**: `COMPANION_FAULT_PENALTY_PERCENT=0.20`
 - **Nhãn**: `[DEMO_POLICY — APPROVED]`
@@ -57,7 +57,7 @@ Tài liệu này quy định các **chính sách vận hành tạm thời (Stude
 ---
 
 ### 5. Kết quả phân xử khi Companion có tỷ lệ lỗi dưới 80%
-- **Khoảng trống nguồn**: BPMN giả định trường hợp lỗi từ 1% đến 79% chuyển sang giải ngân bình thường cho Companion, cần PO xác nhận.
+- **Khoảng trống nguồn**: BPMN giả định trường hợp lỗi từ 1% đến 79% chuyển sang giải ngân bình thường cho Companion. [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định] (D23).
 - **Quy tắc Demo Policy**:
   - Trong phạm vi MVP học thuật, tuân thủ mô hình nhị phân của BPMN:
     - Nếu CS Agent xác định lỗi Companion $< 80\%$ (ví dụ gián đoạn nhỏ, lỗi kết nối mạng bên ngoài): Coi như dịch vụ cơ bản đã hoàn thành, tiến hành **giải phóng tiền 88/12** cho Companion.
@@ -68,7 +68,7 @@ Tài liệu này quy định các **chính sách vận hành tạm thời (Stude
 ---
 
 ### 6. Thời hạn bổ sung bằng chứng tranh chấp (Evidence Deadline)
-- **Khoảng trống nguồn**: BPMN nêu bước CS yêu cầu bổ sung bằng chứng nhưng chưa ghi rõ hạn chót.
+- **Khoảng trống nguồn**: BPMN nêu bước CS yêu cầu bổ sung bằng chứng nhưng chưa ghi rõ hạn chót. [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định] (D25).
 - **Quy tắc Demo Policy**:
   - Thời hạn tối đa để hai bên gửi ảnh chụp/bằng chứng bổ sung là **24 giờ**.
   - Trong môi trường demo/test, hỗ trợ nút "Trigger Expire" để mô phỏng hết hạn ngay lập tức.

@@ -4,7 +4,8 @@ import {
   NotFoundError, 
   BusinessError, 
   ConflictError, 
-  ForbiddenError 
+  ForbiddenError,
+  UnauthorizedError 
 } from '../../common/errors.js';
 import { calculateSlotDurationHours, getVietnamDayKey } from '../../common/dateUtils.js';
 import { CreateBookingInput } from './booking.dto.js';
@@ -14,9 +15,21 @@ import { settlementService } from '../ledger/settlement.service.js';
 import { disputeService, CreateDisputeInput } from '../dispute/dispute.service.js';
 import { SYSTEM_ACCOUNTS } from '../ledger/ledger.types.js';
 import { logger } from '../../common/logger.js';
+import { userMessages, formatShortId, FormattedNotification } from '../../common/messages.vi.js';
 
 export class BookingService {
   async createBooking(renterId: string, input: CreateBookingInput) {
+    const renterUser = await prisma.user.findUnique({
+      where: { user_id: renterId },
+      select: { is_email_verified: true },
+    });
+    if (renterUser && !renterUser.is_email_verified) {
+      throw new ForbiddenError(
+        'Tài khoản chưa xác minh email (UC01). Vui lòng xác minh email để đặt lịch.',
+        'EMAIL_NOT_VERIFIED'
+      );
+    }
+
     const now = new Date();
 
     // 1. Chống đặt trùng theo request_key (Idempotency Check - BR-01, TC01, TC02)
@@ -82,6 +95,11 @@ export class BookingService {
       throw new BusinessError('COMPANION_INACTIVE', 'Tài khoản Companion hiện không ở trạng thái hoạt động.');
     }
 
+    // Kiểm tra Companion đã hoàn thiện hồ sơ chưa (Section B.2)
+    if (slot.profile.profile_status === 'INCOMPLETE') {
+      throw new BusinessError('PROFILE_INCOMPLETE', 'Hồ sơ Companion chưa hoàn thiện thông tin, không thể nhận đơn.');
+    }
+
     // Kiểm tra điểm tín nhiệm của Companion
     if (slot.profile.trust_score < 40) {
       throw new BusinessError('COMPANION_SUSPENDED', 'Hồ sơ Companion đang bị tạm khóa do điểm uy tín thấp (< 40).');
@@ -114,7 +132,8 @@ export class BookingService {
     }
 
     // Chốt total_fee_snapshot bằng số nguyên VND ngay tại thời điểm đặt (TC05)
-    const totalFeeSnapshot = slot.profile.hourly_rate * durationHours;
+    const hourlyRate = slot.profile.hourly_rate ?? 0;
+    const totalFeeSnapshot = hourlyRate * durationHours;
 
     // 4. Kiểm tra giới hạn 10 giờ/ngày theo giờ Việt Nam UTC+7 (BR-03, D08, TC68)
     const targetDayKey = getVietnamDayKey(new Date(slot.start_time));
@@ -274,7 +293,8 @@ export class BookingService {
       } else {
         return [];
       }
-    } else if (!['CS_AGENT', 'AUDITOR', 'ADMIN'].includes(userRole)) {
+    } else {
+      // Quản trị viên/vận hành (ADMIN, CS_AGENT, AUDITOR) không xem đơn của người khác trong mục cá nhân (Lỗi A.2)
       whereClause.renter_id = userId;
     }
 
@@ -537,12 +557,14 @@ export class BookingService {
       });
 
       // 5. Tạo thông báo in-app cho Renter
+      const notifAccepted = userMessages.bookingAccepted(booking.companion.user.display_name, booking.booking_id);
       await tx.notification.create({
         data: {
           user_id: booking.renter_id,
-          title: 'Đơn đặt lịch được chấp nhận',
-          message: `Companion ${booking.companion.user.display_name} đã chấp nhận đơn đặt lịch của bạn. Phòng chơi đã sẵn sàng!`,
-          type: 'BOOKING_ACCEPTED',
+          title: notifAccepted.title,
+          message: notifAccepted.message,
+          type: notifAccepted.type,
+          target_url: notifAccepted.target_url,
         },
       });
 
@@ -688,12 +710,14 @@ export class BookingService {
         });
 
         // 6. Gửi thông báo cho Renter
+        const notifRejected = userMessages.bookingRejected(booking.booking_id, booking.total_fee_snapshot);
         await tx.notification.create({
           data: {
             user_id: booking.renter_id,
-            title: 'Đơn đặt lịch bị từ chối',
-            message: `Companion đã từ chối nhận đơn. Số tiền ${booking.total_fee_snapshot.toLocaleString('vi-VN')} VND đã được hoàn về ví của bạn.`,
-            type: 'BOOKING_REJECTED',
+            title: notifRejected.title,
+            message: notifRejected.message,
+            type: notifRejected.type,
+            target_url: notifRejected.target_url,
           },
         });
 
@@ -732,7 +756,7 @@ export class BookingService {
    * Xử lý quá hạn 180 giây không phản hồi từ Companion (BR-16, D10).
    * Hoàn 100% Escrow cho Renter và trừ 3 điểm TrustScore của Companion.
    */
-  async handleTimeout(bookingId: string, actorId?: string) {
+  async handleTimeout(bookingId: string, actorId?: string, actorRole?: string, internalClock?: Date) {
     const booking = await prisma.booking.findUnique({
       where: { booking_id: bookingId },
       include: {
@@ -744,6 +768,19 @@ export class BookingService {
 
     if (!booking) {
       throw new NotFoundError('Không tìm thấy đơn đặt lịch.');
+    }
+
+    // P0-2 & Stage 1A Final: Phân quyền gọi timeout
+    // Căn cứ docs/REQUIREMENTS.md & BPMN: CS_AGENT và AUDITOR không có thẩm quyền kích hoạt timeout/phạt TrustScore.
+    // Áp dụng nguyên tắc fail-closed: Bắt buộc có actorId, chỉ Renter hoặc Companion trong đơn (hoặc SYSTEM worker) mới có quyền.
+    if (!actorId) {
+      throw new UnauthorizedError('Yêu cầu xác thực danh tính người thực hiện (actorId).');
+    }
+
+    const isSystem = actorId === 'SYSTEM' || actorRole === 'SYSTEM';
+    const isParty = isSystem || booking.renter_id === actorId || booking.companion.user_id === actorId;
+    if (!isParty) {
+      throw new ForbiddenError('Chỉ người đặt lịch hoặc Companion trong đơn mới có quyền xử lý quá hạn phản hồi.');
     }
 
     // Idempotency: nếu đã hủy do timeout
@@ -761,7 +798,11 @@ export class BookingService {
       );
     }
 
-    const now = new Date();
+    if (internalClock && isNaN(internalClock.getTime())) {
+      throw new BusinessError('INVALID_DATETIME', 'Thời gian kiểm tra không hợp lệ.');
+    }
+
+    const now = internalClock || new Date();
     if (booking.response_deadline && now <= booking.response_deadline) {
       throw new BusinessError(
         'DEADLINE_NOT_REACHED',
@@ -874,26 +915,30 @@ export class BookingService {
             from_status: 'WAITING_COMPANION_RESPONSE',
             to_status: 'CANCELLED',
             reason: 'Hết thời hạn 180s phản hồi (Companion Timeout). Hoàn 100% tiền ký quỹ cho Renter và trừ 3.0 điểm uy tín Companion.',
-            changed_by: actorId || null,
+            changed_by: (actorId && actorId !== 'SYSTEM') ? actorId : null,
           },
         });
 
         // 7. Tạo thông báo cho 2 bên
+        const notifTimeout = userMessages.bookingTimeoutRefund(booking.booking_id, booking.total_fee_snapshot);
         await tx.notification.create({
           data: {
             user_id: booking.renter_id,
-            title: 'Đơn đặt lịch hết hạn phản hồi',
-            message: `Companion đã không phản hồi trong 180 giây. Số tiền ${booking.total_fee_snapshot.toLocaleString('vi-VN')} VND đã được hoàn 100% về ví của bạn.`,
-            type: 'BOOKING_TIMEOUT_REFUND',
+            title: notifTimeout.title,
+            message: notifTimeout.message,
+            type: notifTimeout.type,
+            target_url: notifTimeout.target_url,
           },
         });
 
+        const notifPenalized = userMessages.companionMissedBooking(booking.booking_id);
         await tx.notification.create({
           data: {
             user_id: booking.companion.user_id,
-            title: 'Cảnh báo: Bỏ lỡ phản hồi đơn đặt lịch',
-            message: `Bạn đã không phản hồi đơn đặt lịch trong 180 giây. Đơn đã bị hủy và bạn bị trừ 3 điểm uy tín.`,
-            type: 'COMPANION_PENALIZED',
+            title: notifPenalized.title,
+            message: notifPenalized.message,
+            type: notifPenalized.type,
+            target_url: notifPenalized.target_url,
           },
         });
 
@@ -1165,13 +1210,13 @@ export class BookingService {
           });
         } else {
           // ==============================================================
-          // NHÁNH 3: Hủy dưới 10 phút ([DEMO_POLICY - APPROVED] Phạt 100%: 88% Companion, 12% Platform)
+          // NHÁNH 3: Hủy dưới 10 phút (D21: [NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định] Phạt 100%: 88% Companion, 12% Platform)
           // ==============================================================
           policyApplied = 'CANCEL_LT_10M';
           const platformFee = Math.floor(totalFee * 0.12);
           const companionShare = totalFee - platformFee; // Bảo toàn số nguyên VND
 
-          historyReason = `[DEMO_POLICY - APPROVED] Hủy dưới 10 phút (${Math.round(deltaMinutes)} phút còn lại): Phạt 100% tiền ký quỹ, chi trả 88% (${companionShare.toLocaleString('vi-VN')} VND) cho Companion và 12% (${platformFee.toLocaleString('vi-VN')} VND) cho Nền tảng.`;
+          historyReason = `Hủy gấp dưới 10 phút (${Math.round(deltaMinutes)} phút còn lại): Khấu trừ tiền ký quỹ để bồi thường thời gian cho Companion theo quy định hủy dịch vụ.`;
 
           // Ghi nhận Sổ cái: 1 transaction duy nhất với 3 bút toán đối ứng cân bằng
           await ledgerService.postTransaction(
@@ -1225,21 +1270,35 @@ export class BookingService {
         });
 
         // 6. Thông báo cho người dùng
+        let renterNotif: FormattedNotification;
+        if (policyApplied === 'CANCEL_GE_30M') {
+          renterNotif = userMessages.bookingCancelledRefund100(booking.booking_id, totalFee);
+        } else if (policyApplied === 'CANCEL_10_30M') {
+          const renterRefund = Math.floor(totalFee * 0.70);
+          const feeComp = totalFee - renterRefund;
+          renterNotif = userMessages.bookingCancelledRefund70(booking.booking_id, renterRefund, feeComp);
+        } else {
+          renterNotif = userMessages.bookingCancelledLatePenalty(booking.booking_id);
+        }
+
         await tx.notification.create({
           data: {
             user_id: booking.renter_id,
-            title: 'Hủy đơn đặt lịch thành công',
-            message: historyReason,
-            type: 'BOOKING_CANCELLED',
+            title: renterNotif.title,
+            message: renterNotif.message,
+            type: renterNotif.type,
+            target_url: renterNotif.target_url,
           },
         });
 
+        const shortBk = formatShortId('BK', booking.booking_id);
         await tx.notification.create({
           data: {
             user_id: booking.companion.user_id,
             title: 'Đơn đặt lịch đã bị hủy',
-            message: `Renter đã hủy đơn đặt lịch. ${historyReason}`,
+            message: `Người thuê đã hủy đơn ${shortBk}. Khung giờ đã được cập nhật lại.`,
             type: 'BOOKING_CANCELLED',
+            target_url: `/don-hang/${booking.booking_id}`,
           },
         });
 
@@ -1299,21 +1358,41 @@ export class BookingService {
 
   /**
    * Hệ thống tự động nghiệm thu sau 15 phút không có khiếu nại (DEMO_POLICY #2)
-   * Hỗ trợ testability với fake clock / simulatedNow.
+   * Hỗ trợ testability với fake clock / internalClock (chỉ dùng nội bộ/test).
    */
-  async autoAccept(bookingId: string, simulatedNow?: Date) {
+  async autoAccept(bookingId: string, actorId?: string, actorRole?: string, internalClock?: Date) {
     const booking = await prisma.booking.findUnique({
       where: { booking_id: bookingId },
-      include: { escrow: true },
+      include: {
+        escrow: true,
+        companion: true,
+      },
     });
 
     if (!booking) {
       throw new NotFoundError('Không tìm thấy đơn đặt lịch.');
     }
 
+    // P0-2 & Stage 1A Final: Phân quyền gọi auto-accept
+    // Căn cứ docs/REQUIREMENTS.md & BPMN: Áp dụng nguyên tắc quyền tối thiểu (fail-closed).
+    // Bắt buộc có actorId, chỉ các bên tham gia đơn (Renter hoặc Companion trong đơn, hoặc SYSTEM worker) mới có quyền kích hoạt nghiệm thu tự động.
+    if (!actorId) {
+      throw new UnauthorizedError('Yêu cầu xác thực danh tính người thực hiện (actorId).');
+    }
+
+    const isSystem = actorId === 'SYSTEM' || actorRole === 'SYSTEM';
+    const isParty = isSystem || booking.renter_id === actorId || booking.companion.user_id === actorId;
+    if (!isParty) {
+      throw new ForbiddenError('Chỉ các bên tham gia đơn đặt lịch (Renter hoặc Companion) mới có quyền kích hoạt nghiệm thu tự động.');
+    }
+
     // Nếu đã hoàn tất rồi
     if (booking.status === 'COMPLETED') {
-      return await settlementService.settleBooking(bookingId, 'SYSTEM_AUTO_ACCEPT_TIMEOUT');
+      return await settlementService.settleBooking(
+        bookingId,
+        'SYSTEM_AUTO_ACCEPT_TIMEOUT',
+        (actorId && actorId !== 'SYSTEM') ? actorId : undefined
+      );
     }
 
     if (booking.escrow?.status === 'FROZEN') {
@@ -1337,7 +1416,12 @@ export class BookingService {
       );
     }
 
-    const checkTime = simulatedNow || new Date();
+    // P0-1: Ngăn chặn vượt rào bằng Invalid Date (NaN so sánh luôn trả về false)
+    if (internalClock && isNaN(internalClock.getTime())) {
+      throw new BusinessError('INVALID_DATETIME', 'Thời gian kiểm tra không hợp lệ.');
+    }
+
+    const checkTime = internalClock || new Date();
     if (checkTime < booking.confirm_deadline) {
       throw new BusinessError(
         'ACCEPTANCE_DEADLINE_NOT_REACHED',
@@ -1345,7 +1429,11 @@ export class BookingService {
       );
     }
 
-    return await settlementService.settleBooking(bookingId, 'SYSTEM_AUTO_ACCEPT_TIMEOUT');
+    return await settlementService.settleBooking(
+      bookingId,
+      'SYSTEM_AUTO_ACCEPT_TIMEOUT',
+      (actorId && actorId !== 'SYSTEM') ? actorId : undefined
+    );
   }
 
   /**

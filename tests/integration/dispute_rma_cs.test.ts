@@ -53,10 +53,13 @@ describe('Dispute, RMA, Evidence Upload & CS Settlement Decisions (M7 - PROMPT 1
       },
     });
 
-    // 3. Khôi phục số dư ví chuẩn xác
+    // 3. Khôi phục số dư ví chuẩn xác và xóa nợ phạt
+    await prisma.wallet.updateMany({
+      data: { penalty_debt: 0 },
+    });
     await prisma.wallet.update({
       where: { wallet_id: 'w-renter-01' },
-      data: { available_balance: 500000, escrow_balance: 0 },
+      data: { available_balance: 500000, escrow_balance: 0, penalty_debt: 0 },
     });
     await prisma.wallet.update({
       where: { wallet_id: 'w-renter-02' },
@@ -316,7 +319,7 @@ describe('Dispute, RMA, Evidence Upload & CS Settlement Decisions (M7 - PROMPT 1
         .send({
           file_type: 'IMAGE_PNG',
           file_name: 'screenshot_match_history.png',
-          file_content_base64: Buffer.from('mock-png-image-binary-data').toString('base64'),
+          file_content_base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
           description: 'Ảnh chụp màn hình lịch sử trận đấu không thấy Companion vào sảnh.',
         });
 
@@ -506,8 +509,8 @@ describe('Dispute, RMA, Evidence Upload & CS Settlement Decisions (M7 - PROMPT 1
       const renterWalletAfter = await prisma.wallet.findUnique({ where: { wallet_id: 'w-renter-01' } });
       const compWalletAfter = await prisma.wallet.findUnique({ where: { wallet_id: 'w-comp-01' } });
 
-      // Renter nhận lại 100.000 đ ký quỹ + 20.000 đ tiền phạt từ Companion = +120.000 đ
-      expect(renterWalletAfter!.available_balance - renterWalletBefore!.available_balance).toBe(120000);
+      // Renter nhận lại 100.000 đ ký quỹ Escrow (D22: Phạt vi phạm 20.000 đ nộp vào doanh thu nền tảng)
+      expect(renterWalletAfter!.available_balance - renterWalletBefore!.available_balance).toBe(100000);
       expect(renterWalletBefore!.escrow_balance - renterWalletAfter!.escrow_balance).toBe(100000);
 
       // Companion bị trừ đúng 20.000 đ từ ví khả dụng
@@ -561,6 +564,7 @@ describe('Dispute, RMA, Evidence Upload & CS Settlement Decisions (M7 - PROMPT 1
       const comp2WalletAfter = await prisma.wallet.findUnique({ where: { wallet_id: 'w-comp-02' } });
       expect(comp2WalletAfter?.available_balance).toBe(0);
       expect(comp2WalletAfter!.available_balance).toBeGreaterThanOrEqual(0); // BẢO VỆ CHỐNG ÂM VÍ TUYỆT ĐỐI
+      expect(comp2WalletAfter?.penalty_debt).toBe(30000); // D22: Không đủ tiền thì ghi nợ phạt PENALTY_DEBT (20% của 150.000 đ = 30.000 đ)
     });
 
     it('TC58: Threshold < 80% (Companion fault < 80%): Service fundamentally completed -> Settles 88/12', async () => {

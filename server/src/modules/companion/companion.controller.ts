@@ -40,3 +40,9 @@ export async function handleDeleteSlot(req: Request, res: Response): Promise<voi
   const result = await companionService.deleteSlot(userId, id);
   sendSuccess(res, result);
 }
+
+export async function handleUploadVoiceIntro(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.user_id;
+  const result = await companionService.uploadVoiceIntro(userId, req.body);
+  sendSuccess(res, result, 201);
+}

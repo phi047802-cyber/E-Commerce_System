@@ -6,6 +6,8 @@ import {
   handleEndSession,
   handleSendMessage,
   handleGetMessages,
+  handleGetIceServers,
+  handleGetCallLogs,
 } from './session.controller.js';
 import { authenticate } from '../../middleware/auth.js';
 import { validateBody } from '../../middleware/validate.js';
@@ -23,3 +25,5 @@ sessionRouter.post('/:id/start', asyncHandler(handleStartSession));
 sessionRouter.post('/:id/end', asyncHandler(handleEndSession));
 sessionRouter.post('/:id/messages', validateBody(sendMessageSchema), asyncHandler(handleSendMessage));
 sessionRouter.get('/:id/messages', asyncHandler(handleGetMessages));
+sessionRouter.get('/:id/ice-servers', asyncHandler(handleGetIceServers));
+sessionRouter.get('/:id/call-logs', asyncHandler(handleGetCallLogs));
