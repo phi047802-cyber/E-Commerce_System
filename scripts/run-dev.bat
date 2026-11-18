@@ -16,10 +16,10 @@ if not exist .env (
     copy .env.example .env
 )
 
-if not exist prisma\dev.db (
-    echo [SETUP] Database not found. Running migrations and seed...
-    call npm run setup
-)
+echo [DB] Ensuring SQL Server container is running...
+call docker compose up -d mssql
+call node scripts\db\ensure-database.mjs
+call npx prisma migrate deploy
 
 echo.
 echo [START] Starting Backend API and Frontend in parallel...

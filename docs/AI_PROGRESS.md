@@ -326,10 +326,11 @@ Quy tắc cập nhật trạng thái: `Not Started` | `In Progress` | `Blocked` 
 |:---:|:---|:---:|:---|
 | B1 | Audit code hiện tại & đọc tài liệu chuẩn (Prompt Chain + 3 nguồn) | `Done` | `docs/UPGRADE_AUDIT_MAP.md`, D32–D37 |
 | B2 | Bộ tài liệu Quy trình thống nhất, Pháp lý, Non-gamer, Goals | `Done` | `UNIFIED_WORKFLOW.md`, `TERMS_AND_CONTRACTS.md`, `NON_GAMER_GROWTH_STRATEGY.md`, `PROJECT_GOALS.md` |
-| B3 | SQL Server + nâng cấp Backend Core | `Not Started` | — |
+| B3 | SQL Server + nâng cấp Backend Core | `Done` | Migration `20261118000000_sqlserver_baseline`, module `legal`, `growth`, 414/414 test trên SQL Server 2022 |
 | B4 | Tinh chỉnh Web + E2E | `Not Started` | — |
 | B5 | Mobile Flutter + Deep Link | `Not Started` | — |
 | B6 | QA tổng thể, đối soát Ledger, báo cáo | `Not Started` | — |
 
 - **2026-11-18 (B1)**: Snapshot toàn bộ working tree vào `main` (commit `e942ee2`), đổi `master`→`main`, tạo `dev`. Phát hiện: chưa có remote Git; SQL Server cục bộ tắt TCP; Flutter chưa cài; vitest baseline trên SQLite bị crash worker (`ERR_IPC_CHANNEL_CLOSED`) giữa chừng → đo lại trên SQL Server ở B3.
 - **2026-11-18 (B2)**: Viết 4 tài liệu nghiệp vụ. Endpoint trong tài liệu đã đối chiếu với router thật (`/api/cs/disputes/:id/decision`, …). Endpoint mới (`/api/legal/*`, `/go/*`, `.well-known`) được đánh dấu triển khai ở B3–B5.
+- **2026-11-18 (B3)**: Prisma `sqlserver` (container SQL Server 2022, cổng 14330). Baseline migration mới + 4 filtered unique index (`scripts/db/patch-filtered-unique.mjs`); lịch sử SQLite lưu ở `prisma/migrations_sqlite_archive/`. Seed idempotent có 4 dịch vụ SOCIAL + 2 Companion Non-gamer + chấp thuận điều khoản. Module mới: `legal` (terms/acceptance/violations), `growth` (`/go/*`, `.well-known`), lọc `category`, UTM. Test mới: `sqlserver_concurrency` (10 renter đồng thời × 3 vòng → đúng 1 booking), `legal_terms_violations` (10), `growth_deeplink_catalog` (7). Lệnh: `npx vitest run --silent=true` → **40 file / 414 test PASS** (59s). `npm run ledger:reconcile` trên DB seed sạch → PASS (Σdebit = Σcredit = 500.000 đ, 0 lệch). `npm run build:server` PASS.

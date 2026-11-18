@@ -6,9 +6,19 @@ import { NotFoundError } from '../../common/errors.js';
 import { env } from '../../config/env.js';
 import { mockGameRankProvider } from '../companion/game-rank-provider.js';
 
-export async function getGames(_req: Request, res: Response): Promise<void> {
+const SERVICE_CATEGORIES = ['GAME', 'SOCIAL'] as const;
+
+function parseCategory(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || raw === '' || raw.toUpperCase() === 'ALL') return undefined;
+  const upper = raw.toUpperCase();
+  return (SERVICE_CATEGORIES as readonly string[]).includes(upper) ? upper : '__INVALID__';
+}
+
+/** GET /api/games?category=GAME|SOCIAL — danh mục dịch vụ (Game + Non-gamer, D35). */
+export async function getGames(req: Request, res: Response): Promise<void> {
+  const category = parseCategory(req.query.category);
   const games = await prisma.gameCatalog.findMany({
-    where: { is_active: true },
+    where: { is_active: true, ...(category ? { category } : {}) },
     include: {
       tiers: {
         orderBy: { rank_weight: 'asc' },
@@ -47,6 +57,12 @@ export async function getCompanions(req: Request, res: Response): Promise<void> 
   // 1. Tiêu chí Game (FR-002, UC02)
   if (game_id && game_id !== 'ALL') {
     whereClause.game_id = game_id;
+  }
+
+  // 1b. Nhóm dịch vụ GAME / SOCIAL (Non-gamer, D35)
+  const category = parseCategory(query.category);
+  if (category) {
+    whereClause.game = { category };
   }
 
   // 2. Tiêu chí Rank / Bậc kỹ năng (FR-002, UC02)
@@ -460,6 +476,7 @@ export async function getCompanionSlots(req: Request, res: Response): Promise<vo
 
 export async function recordVisit(req: Request, res: Response): Promise<void> {
   const { session_key } = req.body;
+  const utm = extractUtm(req.body);
   if (!session_key || typeof session_key !== 'string') {
     res.status(400).json({
       success: false,
@@ -494,9 +511,26 @@ export async function recordVisit(req: Request, res: Response): Promise<void> {
         session_key,
         ip_hash: ipHash,
         user_agent: userAgent.slice(0, 255),
+        ...utm,
       },
     });
   }
 
   sendSuccess(res, { session_key, recorded: !existing, is_bot: false });
+}
+
+
+/** Chuẩn hóa tham số UTM (G8 — đo phễu theo kênh Social). Chỉ nhận chuỗi ngắn, chữ/số/-/_ . */
+export function extractUtm(src: Record<string, unknown> | undefined): {
+  utm_source?: string; utm_medium?: string; utm_campaign?: string; landing_path?: string;
+} {
+  const clean = (v: unknown, max = 64) =>
+    typeof v === 'string' && v.trim() !== '' ? v.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, max) || undefined : undefined;
+  const landing = typeof src?.landing_path === 'string' && src.landing_path.startsWith('/') ? src.landing_path.slice(0, 200) : undefined;
+  return {
+    utm_source: clean(src?.utm_source),
+    utm_medium: clean(src?.utm_medium),
+    utm_campaign: clean(src?.utm_campaign, 100),
+    landing_path: landing,
+  };
 }

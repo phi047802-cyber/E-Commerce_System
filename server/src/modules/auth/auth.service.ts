@@ -2,9 +2,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../common/prisma.js';
 import { env } from '../../config/env.js';
-import { ConflictError, UnauthorizedError, NotFoundError, BusinessError } from '../../common/errors.js';
+import { ConflictError, UnauthorizedError, NotFoundError, BusinessError, ForbiddenError } from '../../common/errors.js';
 import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput, SendVerifyOtpInput, VerifyEmailInput } from './auth.dto.js';
 import { emailService } from './email.service.js';
+import { CURRENT_TERMS_VERSION } from '../legal/legal.catalog.js';
 
 export class AuthService {
   async register(input: RegisterInput) {
@@ -73,6 +74,12 @@ export class AuthService {
         });
       }
 
+      if (input.accept_terms_version === CURRENT_TERMS_VERSION) {
+        await tx.termsAcceptance.create({
+          data: { user_id: newUser.user_id, terms_version: CURRENT_TERMS_VERSION, channel: input.channel ?? 'WEB' },
+        });
+      }
+
       return newUser;
     });
 
@@ -111,6 +118,18 @@ export class AuthService {
 
     if (user.status === 'BANNED') {
       throw new UnauthorizedError('Tài khoản này đã bị khóa vĩnh viễn.');
+    }
+
+    // Tạm khóa có thời hạn do vi phạm điều khoản (TERMS_AND_CONTRACTS.md Phần C)
+    if (user.status === 'SUSPENDED') {
+      if (user.suspended_until && user.suspended_until.getTime() <= Date.now()) {
+        await prisma.user.update({ where: { user_id: user.user_id }, data: { status: 'ACTIVE', suspended_until: null } });
+      } else {
+        throw new ForbiddenError(
+          `Tài khoản đang bị tạm khóa${user.suspended_until ? ' đến ' + user.suspended_until.toISOString() : ''} do vi phạm điều khoản.`,
+          'ACCOUNT_SUSPENDED'
+        );
+      }
     }
 
     const isMatch = await bcrypt.compare(input.password, user.password_hash);

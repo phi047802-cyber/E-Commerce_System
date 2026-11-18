@@ -8,6 +8,10 @@ export const registerSchema = z.object({
   phone_number: z.string().optional(),
   is_over_18: z.boolean().optional(),
   date_of_birth: z.string().optional(),
+  // Chấp thuận Điều khoản tại bước đăng ký (TERMS_AND_CONTRACTS.md B.6). Không bắt buộc ở đây;
+  // nếu bỏ qua, người dùng sẽ được yêu cầu chấp thuận trước giao dịch đầu tiên.
+  accept_terms_version: z.string().max(32).optional(),
+  channel: z.enum(['WEB', 'MOBILE']).optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

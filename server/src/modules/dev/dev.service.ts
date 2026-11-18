@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../common/prisma.js';
 import { ForbiddenError } from '../../common/errors.js';
 import { logger } from '../../common/logger.js';
+import { seedNonGamerServices, seedTermsAcceptances, wipeAllBusinessData } from '../catalog/non-gamer.seed.js';
+import { CURRENT_TERMS_VERSION } from '../legal/legal.catalog.js';
 
 export class DevService {
   /**
@@ -15,31 +17,8 @@ export class DevService {
 
     logger.info('🔄 [DevService] Resetting demo database to clean seed state...');
 
-    // 1. Dọn dẹp toàn bộ dữ liệu nghiệp vụ theo thứ tự khóa ngoại
-    await prisma.ledgerAuditAlert.deleteMany();
-    await prisma.auditLog.deleteMany();
-    await prisma.notification.deleteMany();
-    await prisma.trustScoreLog.deleteMany();
-    await prisma.review.deleteMany();
-    await prisma.disputeDecision.deleteMany();
-    await prisma.disputeEvidence.deleteMany();
-    await prisma.disputeCase.deleteMany();
-    await prisma.chatMessage.deleteMany();
-    await prisma.session.deleteMany();
-    await prisma.bookingStatusHistory.deleteMany();
-    await prisma.booking.deleteMany();
-    await prisma.slotCalendar.deleteMany();
-    await prisma.platformRevenue.deleteMany();
-    await prisma.payment.deleteMany();
-    await prisma.ledgerEntry.deleteMany();
-    await prisma.ledgerTransaction.deleteMany();
-    await prisma.escrow.deleteMany();
-    await prisma.withdrawalRequest.deleteMany();
-    await prisma.wallet.deleteMany();
-    await prisma.companionProfile.deleteMany();
-    await prisma.skillRankTier.deleteMany();
-    await prisma.gameCatalog.deleteMany();
-    await prisma.user.deleteMany();
+    // 1. Dọn dẹp toàn bộ dữ liệu nghiệp vụ theo thứ tự khóa ngoại (SQL Server FK NO ACTION, D34)
+    await wipeAllBusinessData(prisma, { keepPublicContent: true });
 
     // 2. Mật khẩu mặc định băm
     const defaultPassword = await bcrypt.hash('Demo@123456', 10);
@@ -321,6 +300,9 @@ export class DevService {
       },
     });
 
+    await seedNonGamerServices(prisma, defaultPassword);
+    await seedTermsAcceptances(prisma, CURRENT_TERMS_VERSION);
+
     logger.info('✅ [DevService] Demo database reset successfully to clean state.');
 
     return {
@@ -329,9 +311,9 @@ export class DevService {
       stats: {
         users: 5,
         games: 4,
-        profiles: 2,
-        slots: 5,
-        wallets: 5,
+        profiles: 4,
+        slots: 8,
+        wallets: 7,
       },
     };
   }
