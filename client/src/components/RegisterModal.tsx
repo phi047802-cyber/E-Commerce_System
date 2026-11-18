@@ -1,3 +1,4 @@
+import { CURRENT_TERMS_VERSION } from './legal/legalApi';
 import React, { useState } from 'react';
 import { 
   X, 
@@ -87,6 +88,8 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
           role,
           is_over_18: isOver18,
           date_of_birth: dateOfBirth || undefined,
+          // Ghi nhận chấp thuận điều khoản hiện hành ngay lúc đăng ký (D39)
+          ...(agreeTerms ? { accept_terms_version: CURRENT_TERMS_VERSION, channel: 'WEB' } : {}),
         }),
       });
 
