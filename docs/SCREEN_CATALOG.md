@@ -73,3 +73,16 @@ Tài liệu này tổng hợp toàn bộ màn hình và giao diện người dù
 | **Quản lý danh sách Đơn đặt (Bookings)** | Xem toàn bộ đơn hàng trong hệ thống, trạng thái vòng đời Escrow (HELD, ACCEPTED, IN_SESSION, COMPLETED, DISPUTED) | UC03 | FR-003 | [screenshot-e1-admin-bookings.png](file:///C:/INSTASQUAD/INSTASQUAD/docs/screenshot-e1-admin-bookings.png) |
 | **Phê duyệt yêu cầu rút tiền (Withdrawals)** | Thẩm định yêu cầu rút tiền của Companion, phê duyệt chi tiền (tạo mã `SIM-PO`) hoặc từ chối hoàn trả số dư | UC01 | FR-005 | [screenshot-e1-dashboard-admin.png](file:///C:/INSTASQUAD/INSTASQUAD/docs/screenshot-e1-dashboard-admin.png) |
 | **Duyệt hồ sơ định danh eKYC** | Kiểm tra thông tin giấy tờ tùy thân, ảnh selfie, đối chiếu khuôn mặt và phê duyệt trạng thái huy hiệu eKYC | UC01 | FR-001 | [screenshot-e1-dashboard-admin.png](file:///C:/INSTASQUAD/INSTASQUAD/docs/screenshot-e1-dashboard-admin.png) |
+
+
+## Bổ sung Nâng cấp Đa nền tảng (2026-11-18)
+
+| Màn hình / Thành phần | Vai trò | Đường dẫn / Vị trí | API | Mobile tương ứng |
+|---|---|---|---|---|
+| Quy trình 8 bước (rút gọn) | Khách, mọi vai trò | Trang chủ | — | `HomeScreen` |
+| Quy trình thống nhất (đầy đủ) | Khách | `/quy-trinh-thong-nhat` | — | `WorkflowScreen` |
+| Dịch vụ Trò chuyện & Giải trí | Khách, Renter | Trang chủ, tab Khám phá | `GET /api/games?category=SOCIAL` | `DiscoverScreen` (tab Trò chuyện) |
+| Modal chấp thuận điều khoản | Renter | Khi đặt lịch bị `TERMS_NOT_ACCEPTED` | `GET /api/legal/terms`, `POST /api/legal/accept` | `TermsScreen` |
+| Phiên bản điều khoản & bảng vi phạm | Khách | `/dieu-khoan-dich-vu` | `GET /api/legal/terms` | `TermsScreen` |
+| Biến động số dư | Renter, Companion | Tab Khám phá / Dashboard Companion | `GET /api/wallet/me` | `WalletScreen` |
+| Ghi nhận vi phạm | CS Agent, Admin | Tab CS | `POST/GET /api/legal/violations` | — (chỉ Web Portal) |

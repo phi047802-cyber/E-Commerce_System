@@ -1,3 +1,4 @@
+import { LiveTermsSection } from '../components/legal/LiveTermsSection';
 import React from 'react';
 import { FileText, ArrowLeft, ShieldCheck, AlertTriangle, Users, Lock } from 'lucide-react';
 
@@ -11,6 +12,7 @@ export const TermsOfServicePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white selection:bg-[#E11D2E] selection:text-white py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
+        <LiveTermsSection />
         {/* Navigation */}
         <div className="flex items-center justify-between border-b border-[#2A2A2A] pb-4">
           <button

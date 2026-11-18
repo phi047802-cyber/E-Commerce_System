@@ -96,6 +96,7 @@ export const Footer: React.FC = () => {
               Quy chế
             </h4>
             <ul className="space-y-2 text-[#A3A3A3]">
+              <li><a href="/quy-trinh-thong-nhat" onClick={navigateTo('/quy-trinh-thong-nhat')} className="hover:text-white transition">Quy trình 8 bước</a></li>
               <li><a href="/chinh-sach-escrow" onClick={navigateTo('/chinh-sach-escrow')} className="hover:text-white transition">Ký quỹ Escrow</a></li>
               <li><a href="/chinh-sach-escrow" onClick={navigateTo('/chinh-sach-escrow')} className="hover:text-white transition">Chính sách hoàn tiền</a></li>
               <li><a href="/dieu-khoan-dich-vu" onClick={navigateTo('/dieu-khoan-dich-vu')} className="hover:text-white transition">Quy chuẩn ứng xử</a></li>

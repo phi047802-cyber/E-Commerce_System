@@ -58,6 +58,11 @@ import { PaymentGuidePage } from './pages/PaymentGuidePage';
 import { ProfileView } from './components/ProfileView';
 import { Avatar } from './components/common/Avatar';
 import { getDisputeReasonLabel, formatShortId } from './common/messages.vi';
+import { TermsAcceptanceModal } from './components/legal/TermsAcceptanceModal';
+import { ViolationPanel } from './components/legal/ViolationPanel';
+import { WalletLedgerPanel } from './components/WalletLedgerPanel';
+import { NonGamerServices } from './components/NonGamerServices';
+import { UnifiedWorkflowPage } from './pages/UnifiedWorkflowPage';
 
 interface Toast {
   id: string;
@@ -152,6 +157,8 @@ export default function App() {
   const [selectedGame, setSelectedGame] = useState<string>('ALL');
   const [currentUser, setCurrentUser] = useState<AuthUserState | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  // Chấp thuận điều khoản trước giao dịch (D39): lưu slot đang chờ để tự đặt lại sau khi chấp thuận
+  const [termsModalSlotId, setTermsModalSlotId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'catalog' | 'companion_dashboard' | 'cs_view' | 'auditor_view' | 'admin_dashboard' | 'admin_bookings' | 'profile'>('catalog');
@@ -1262,6 +1269,8 @@ export default function App() {
           `Mã đơn: #${data.data.booking_id.slice(0, 8)} (${data.data.status}). Đơn giá chốt snapshot: ${data.data.total_fee_snapshot.toLocaleString('vi-VN')} VND. Vui lòng ký quỹ trong 10 phút.`
         );
         await syncAppState(token);
+      } else if (data.error?.code === 'TERMS_NOT_ACCEPTED') {
+        setTermsModalSlotId(slotId);
       } else {
         addToast('error', 'Không thể đặt lịch', `${data.error.message} (${data.error.code})`);
       }
@@ -2375,6 +2384,7 @@ export default function App() {
       .map((dbC, idx) => {
         const availableSlots = (dbC.slots || []).filter(s => s.status === 'AVAILABLE');
         const isLmht = (dbC.game_id || dbC.game?.game_id || '').toUpperCase() === 'LMHT';
+        const isSocial = (dbC.game as any)?.category === 'SOCIAL';
         return {
           id: dbC.profile_id,
           rankIndex: idx + 1,
@@ -2382,11 +2392,11 @@ export default function App() {
           verified: dbC.verification_status === 'VERIFIED',
           gameId: dbC.game_id || dbC.game?.game_id || 'LMHT',
           gameName: dbC.game?.game_name || (isLmht ? 'Liên Minh Huyền Thoại' : 'VALORANT'),
-          tier: dbC.tier?.tier_name || 'Bậc rank khai báo',
+          tier: dbC.tier?.tier_name || (isSocial ? 'Trò chuyện & Giải trí' : 'Bậc rank khai báo'),
           rating: dbC.rating !== undefined ? dbC.rating : 5.0 - (idx * 0.1),
           reviewCount: dbC.review_count !== undefined ? dbC.review_count : 28 - (idx * 9),
           hourlyRate: dbC.hourly_rate || 100000,
-          tags: isLmht ? ['Thách Đấu', 'Mid / Support', 'Micro call tốt'] : ['Radiant', 'Duelist', 'Aim cứng'],
+          tags: isSocial ? ['Lắng nghe', 'Tôn trọng', 'Escrow an toàn'] : isLmht ? ['Thách Đấu', 'Mid / Support', 'Micro call tốt'] : ['Radiant', 'Duelist', 'Aim cứng'],
           online: dbC.availability === 'ONLINE',
           quote: (dbC.user as any)?.bio || 'Companion chuyên nghiệp, giao tiếp văn minh, sẵn sàng phối hợp leo rank.',
           image: `/images/companions/c0${(idx % 6) + 1}.jpg`,
@@ -2692,9 +2702,19 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base md:text-lg font-bold text-white">Sàn Companion & Khám phá Game</h3>
-                    <p className="text-xs text-[#A3A3A3]">Chọn game bạn muốn chơi và đặt lịch trực tiếp</p>
+                    <p className="text-xs text-[#A3A3A3]">Chọn game hoặc dịch vụ Trò chuyện & Giải trí rồi đặt lịch trực tiếp</p>
                   </div>
                 </div>
+                {currentUser?.role === 'RENTER' && <WalletLedgerPanel token={token} refreshKey={(currentUser?.wallet?.available_balance ?? 0) + (currentUser?.wallet?.escrow_balance ?? 0) * 7 + myBookings.length} />}
+                <NonGamerServices
+                  embedded
+                  selected={selectedGame}
+                  onSelectService={(serviceId) => {
+                    setSelectedGame(serviceId);
+                    const el = document.getElementById('companions');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                />
                 <GameRow
                   games={displayGames}
                   companions={displayCompanions}
@@ -3315,6 +3335,8 @@ export default function App() {
             </div>
 
             {/* CARD: SIMULATED WITHDRAWAL & WALLET MANAGEMENT (M7 - D18, BR-23) */}
+            <WalletLedgerPanel token={token} refreshKey={(currentUser?.wallet?.available_balance ?? 0) + myBookings.length + myWithdrawals.length} />
+
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-800 pb-3">
                 <div>
@@ -3514,6 +3536,9 @@ export default function App() {
                 Xử lý khiếu nại tranh chấp (RMA) và phê duyệt/chi trả các yêu cầu rút tiền của Companion.
               </p>
             </div>
+
+            {/* Ghi nhận vi phạm điều khoản (TERMS_AND_CONTRACTS.md Phần C, D40) */}
+            <ViolationPanel token={token} onToast={addToast} />
 
             {/* DISPUTES QUEUE MANAGEMENT (M6 - PROMPT 10, BR-16, BR-17, BR-18, TC21-TC26) */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
@@ -4444,6 +4469,8 @@ export default function App() {
           <DisputeProcessPage />
         ) : currentPath === '/huong-dan-nap-rut' ? (
           <PaymentGuidePage />
+        ) : currentPath === '/quy-trinh-thong-nhat' ? (
+          <UnifiedWorkflowPage />
         ) : (
           <HomePage
             games={displayGames}
@@ -4457,6 +4484,18 @@ export default function App() {
       <Footer />
     </div>
   )}
+
+      <TermsAcceptanceModal
+        open={termsModalSlotId !== null}
+        token={token}
+        onClose={() => setTermsModalSlotId(null)}
+        onAccepted={() => {
+          const slotId = termsModalSlotId;
+          setTermsModalSlotId(null);
+          addToast('success', 'Đã chấp thuận điều khoản', 'Đang tiếp tục đặt lịch cho khung giờ bạn đã chọn…');
+          if (slotId) handleBookSlot(slotId);
+        }}
+      />
 
       {/* GAME ROOM MODAL (M6 - PROMPT 09) */}
       {showRoomModal && activeSession && (
