@@ -47,7 +47,7 @@
 
 1. **Không có Git remote** → không thể `push`. Mọi commit/merge làm cục bộ; khi có remote chỉ cần `git push -u origin main dev`.
 2. **SQL Server cài sẵn trên máy chỉ bật Shared Memory (TCP tắt)** → Prisma không kết nối được. Không sửa cấu hình hệ thống; dùng container `mcr.microsoft.com/mssql/server:2022-latest` cổng `14330` (D33).
-3. **Flutter SDK chưa cài** trên máy → build/analyze/test qua Docker image Flutter (D36).
+3. **Flutter SDK chưa cài** trên máy → ban đầu dự kiến dùng Docker image Flutter (D36); **đã thay** bằng cài native tại `D:lutter` (D43).
 4. Bộ test cũ phụ thuộc cascade delete của SQLite → cần giữ `onDelete: Cascade` ở mọi quan hệ không tạo chu trình trên SQL Server.
 5. PROMPT 00 nói “Docker là tùy chọn, phải có cách chạy local”: README sẽ mô tả cả 2 cách (Docker container hoặc SQL Server cài sẵn bật TCP/IP + SQL login).
 6. Lần chạy baseline trên SQLite bị crash worker vitest (`ERR_IPC_CHANNEL_CLOSED`) giữa chừng → baseline mới sẽ được đo trực tiếp trên SQL Server.
