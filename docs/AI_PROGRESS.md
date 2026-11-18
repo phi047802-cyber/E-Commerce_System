@@ -325,10 +325,11 @@ Quy tắc cập nhật trạng thái: `Not Started` | `In Progress` | `Blocked` 
 | Bước | Nội dung | Trạng thái | Bằng chứng |
 |:---:|:---|:---:|:---|
 | B1 | Audit code hiện tại & đọc tài liệu chuẩn (Prompt Chain + 3 nguồn) | `Done` | `docs/UPGRADE_AUDIT_MAP.md`, D32–D37 |
-| B2 | Bộ tài liệu Quy trình thống nhất, Pháp lý, Non-gamer, Goals | `Not Started` | — |
+| B2 | Bộ tài liệu Quy trình thống nhất, Pháp lý, Non-gamer, Goals | `Done` | `UNIFIED_WORKFLOW.md`, `TERMS_AND_CONTRACTS.md`, `NON_GAMER_GROWTH_STRATEGY.md`, `PROJECT_GOALS.md` |
 | B3 | SQL Server + nâng cấp Backend Core | `Not Started` | — |
 | B4 | Tinh chỉnh Web + E2E | `Not Started` | — |
 | B5 | Mobile Flutter + Deep Link | `Not Started` | — |
 | B6 | QA tổng thể, đối soát Ledger, báo cáo | `Not Started` | — |
 
 - **2026-11-18 (B1)**: Snapshot toàn bộ working tree vào `main` (commit `e942ee2`), đổi `master`→`main`, tạo `dev`. Phát hiện: chưa có remote Git; SQL Server cục bộ tắt TCP; Flutter chưa cài; vitest baseline trên SQLite bị crash worker (`ERR_IPC_CHANNEL_CLOSED`) giữa chừng → đo lại trên SQL Server ở B3.
+- **2026-11-18 (B2)**: Viết 4 tài liệu nghiệp vụ. Endpoint trong tài liệu đã đối chiếu với router thật (`/api/cs/disputes/:id/decision`, …). Endpoint mới (`/api/legal/*`, `/go/*`, `.well-known`) được đánh dấu triển khai ở B3–B5.
