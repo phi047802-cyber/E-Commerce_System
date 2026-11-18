@@ -1,0 +1,454 @@
+# INSTASQUAD — Chuỗi prompt để AI triển khai đồ án từ WBS
+
+## Cách dùng tài liệu này
+
+Đây là chuỗi prompt để dùng với một AI coding agent có quyền đọc/ghi thư mục dự án (ví dụ agent trong IDE). Chạy **theo thứ tự**, mỗi lần chỉ gửi **một prompt**. Đừng yêu cầu AI làm toàn bộ hệ thống trong một lần.
+
+Trước khi bắt đầu, đặt ba tài liệu nguồn và WBS vào thư mục dự án, khuyến nghị:
+
+```text
+docs/source/BT3_INSTASQUAD.pdf
+docs/source/INSTASQUAD_BPMN_TKHT.pdf
+docs/source/INSTASQUAD_WBS_Detailed.xlsx
+```
+
+Nếu tên hoặc vị trí file khác, sửa đường dẫn tương ứng trong Prompt 00. Nếu repository đã có code, yêu cầu AI giữ nguyên công nghệ hiện hữu nếu không có lý do mạnh để đổi.
+
+### Nguyên tắc dùng prompt
+
+1. **WBS là danh sách công việc và tiêu chí nghiệm thu; hai PDF là nguồn nghiệp vụ.** Khi khác nhau, AI phải nêu chỗ khác nhau, không âm thầm tự sửa.
+2. **Phân biệt bốn nhãn:** `REQUIRED` (phải có), `DEMO_POLICY` (quy ước tạm để demo, chưa được PO duyệt), `MOCKED` (mô phỏng có ghi rõ), `DEFERRED` (để ngoài phạm vi).
+3. Ưu tiên đồ án có thể chạy trên máy cá nhân, dễ demo và có test; không xây hạ tầng sản phẩm thương mại nếu không cần thiết.
+4. Sau mỗi prompt, kiểm tra báo cáo hoàn thành, các test thực sự đã chạy và `docs/AI_PROGRESS.md` trước khi tiếp tục.
+5. Nếu AI gặp một quyết định ảnh hưởng đến tiền mà nguồn chưa quy định, không được giả vờ đó là yêu cầu đã chốt. Hãy hỏi người dùng nếu phải quyết định ngay; nếu không, đặt feature ở trạng thái `BLOCKED_BY_POLICY` hoặc dùng chính sách demo được ghi rõ trong `docs/DEMO_POLICY.md`.
+
+---
+
+# PROMPT 00 — Chỉ thị nền cho toàn bộ dự án
+
+```text
+Bạn là AI coding agent phụ trách hỗ trợ triển khai đồ án sinh viên INSTASQUAD — E-Commerce Game Companion Platform. Bạn có quyền đọc/ghi thư mục dự án và chạy lệnh trong môi trường hiện tại.
+
+NGUỒN SỰ THẬT
+- Đọc toàn bộ file WBS `docs/source/INSTASQUAD_WBS_Detailed.xlsx` (đặc biệt các sheet WBS_Detail, Acceptance_Tests, PO_Decisions, Milestones, Traceability, Readme).
+- Đọc hai PDF `docs/source/BT3_INSTASQUAD.pdf` và `docs/source/INSTASQUAD_BPMN_TKHT.pdf`.
+- WBS mô tả gói công việc và tiêu chí nghiệm thu; PDF mô tả nghiệp vụ và sơ đồ. Không bịa ra yêu cầu khi nguồn không nói.
+- Nếu file không tồn tại hoặc không đọc được, liệt kê chính xác file thiếu và dừng ở bước phân tích; không giả vờ đã đọc.
+
+MỤC TIÊU HỌC THUẬT
+Làm ra bản MVP có thể chạy và demo end-to-end, giải thích được thiết kế, có kiểm thử và truy vết yêu cầu. Không cần đạt chuẩn hạ tầng của sàn thương mại điện tử đang kinh doanh thật. Độ tin cậy của luồng Booking–Escrow–Ledger quan trọng hơn số lượng tính năng trang trí.
+
+NGUYÊN TẮC KỸ THUẬT
+- Trước khi sửa, kiểm tra repo, README, package files, git status và code hiện có. Không ghi đè thay đổi của người dùng. Giữ stack hiện có nếu hợp lý.
+- Nếu repo trống, chọn kiến trúc monolith phân module, dễ chạy local. Mặc định đề xuất: React + Vite cho frontend; Node.js + Express cho backend; PostgreSQL cho database; Prisma hoặc thư viện đang có trong repo để truy cập DB; test bằng công cụ tối giản tương thích với stack. Chỉ chọn stack khác khi có lý do và nêu trade-off.
+- Không bắt buộc Docker. Docker chỉ là lựa chọn; phải có cách chạy local không phụ thuộc dịch vụ trả phí. Không bắt buộc cloud.
+- Không xây microservices, Kubernetes, Redis, message broker, dịch vụ observability trả phí, voice/video realtime hoặc tích hợp tài chính thật trừ khi có lý do học thuật rất rõ. Dùng phương án thay thế ở phạm vi sinh viên.
+- Không tích hợp cổng thanh toán/payout thật mặc định. Dùng Payment Simulator có các trạng thái PENDING/SUCCESS/FAILED và callback mô phỏng; mô tả rõ đây là mock.
+- Chat chỉ cần nhắn tin văn bản trong phòng phiên chơi; không cần gọi thoại/video thật. Chứng cứ có thể là ảnh/tệp demo cỡ nhỏ hoặc metadata minh họa; không tự ghi âm người dùng.
+- Nạp/rút tiền là mô phỏng. Không dùng tiền thật, không lưu thông tin thẻ/ngân hàng thật, không đưa secrets vào code.
+- Tất cả số tiền lưu bằng số nguyên VND. Giao dịch thay đổi số dư phải thông qua ledger; cấm sửa số dư trực tiếp để “làm cho đúng”.
+- Các thao tác tài chính phải có transaction, idempotency phù hợp, audit trail và test. Không tuyên bố an toàn chỉ dựa vào việc app chạy được.
+- Chỉ triển khai một milestone hoặc một nhóm gói công việc mỗi lần. Không tự nhảy sang phase kế tiếp.
+
+QUẢN LÝ YÊU CẦU VÀ GIẢ ĐỊNH
+- Giữ trạng thái của các WBS ID trong `docs/AI_PROGRESS.md`: Not Started / In Progress / Blocked / Done / Deferred.
+- Mỗi quyết định chưa có trong nguồn phải vào `docs/DECISION_LOG.md`, có lý do, tác động, người cần duyệt và nhãn REQUIRED/DEMO_POLICY/DEFERRED.
+- Thực hiện truy vết WBS → code/API/DB → test case TCxx → bằng chứng.
+- Nếu workbook có nội dung mâu thuẫn nội bộ, ghi nhận và đề xuất cách xử lý; không tự coi một bên là chính thức. Cụ thể kiểm tra cả chênh lệch giữa mô tả mốc M1 và số quyết định D01–D18 thực tế trong PO_Decisions.
+
+CÁCH LÀM VIỆC Ở MỖI PROMPT
+1. Đọc file trạng thái và các file liên quan trước khi sửa.
+2. Nêu ngắn gọn phạm vi sẽ làm, file dự kiến thay đổi, phụ thuộc và rủi ro.
+3. Thực hiện đúng phạm vi; không mở rộng ngoài yêu cầu.
+4. Chạy formatter/linter/test/build phù hợp. Chỉ ghi PASS nếu đã thực sự chạy và có kết quả.
+5. Cập nhật `docs/AI_PROGRESS.md`, `docs/DECISION_LOG.md` và ma trận truy vết nếu cần.
+6. Báo cáo: (a) đã làm; (b) file tạo/sửa; (c) lệnh đã chạy và kết quả; (d) test pass/fail/chưa chạy; (e) WBS ID đã cập nhật; (f) blocker/quyết định cần người dùng; (g) prompt tiếp theo nên chạy.
+7. Không chỉ đưa code trong câu trả lời khi có thể chỉnh file thực tế. Không báo “hoàn thành” nếu còn lỗi build hoặc test chưa chạy.
+
+Bây giờ chỉ xác nhận bạn đã hiểu quy tắc và kiểm tra sự tồn tại của repo/tài liệu. Chưa viết tính năng cho đến khi nhận PROMPT 01.
+```
+
+# PROMPT 01 — Đọc WBS, kiểm tra repository và khóa phạm vi MVP
+
+```text
+Thực hiện riêng giai đoạn M0: khởi động, audit và khóa phạm vi; chưa code tính năng.
+
+1. Đọc đủ hai PDF và tất cả sheet trong `INSTASQUAD_WBS_Detailed.xlsx`. Nếu không thể đọc một sheet/range, báo rõ giới hạn.
+2. Kiểm tra repo hiện tại, stack, cấu trúc thư mục, các script, migrations, test và git status.
+3. Tổng hợp các luồng gốc:
+   - Luồng đặt lịch: kiểm tra yêu cầu trùng, slot, giới hạn 10 giờ/ngày, chốt phí, số dư, nạp tiền, ký quỹ, Companion phản hồi trong 180 giây, tự hủy/hoàn tiền, hủy trước giờ.
+   - Luồng dịch vụ: Session, nghiệm thu trong 15 phút, giải ngân 88/12, review hai chiều, TrustScore.
+   - Luồng khiếu nại: đóng băng Escrow, bổ sung chứng cứ, CS phán quyết, hoàn tiền hoặc giải phóng tiền.
+   - Luồng tài chính: Wallet, Payment, Escrow, Ledger giao dịch ghi kép, withdrawal và lịch sử trạng thái.
+4. Lập bảng phân loại phạm vi:
+   REQUIRED: các luồng tối thiểu để có demo đầu-cuối và quy tắc an toàn tài chính cốt lõi.
+   MOCKED: payment gateway, payout ngân hàng, thông báo email, phòng voice/video, scheduler nếu chúng được thay bằng mô phỏng.
+   DEFERRED: những gì đắt/khó và không chứng minh trực tiếp mục tiêu đồ án.
+   DEMO_POLICY: nghiệp vụ nguồn chưa quy định đủ nhưng cần chính sách minh bạch để demo.
+5. Không được bỏ các nhánh lỗi quan trọng chỉ để làm demo đẹp: request lặp, slot bị người khác chiếm, callback lặp, ghi sổ thất bại, hết 180 giây, hoàn tiền, đóng băng Escrow, review trùng, rút tiền bị từ chối.
+6. Lập `docs/SCOPE_BASELINE.md`, `docs/DECISION_LOG.md`, `docs/AI_PROGRESS.md`, `docs/IMPLEMENTATION_PLAN.md`.
+7. Đọc sheet PO_Decisions và đưa đủ D01–D18 vào Decision Log. Mỗi mục ghi: nội dung chưa rõ, mức ảnh hưởng, đề xuất sinh viên, cách làm mặc định an toàn, điều kiện cần PO xác nhận. Không coi khuyến nghị là quyết định đã được duyệt.
+8. Ưu tiên không trả phí và không phụ thuộc dịch vụ bên ngoài. Đề xuất giới hạn thời gian hợp lý nhưng không tự đoán deadline hoặc nhân sự.
+9. Xác định MVP nào đủ tốt để bảo vệ: một bộ dữ liệu demo có seeded users, game, companion, slot, ví; có thể demo booking thành công, timeout/refund, cancel, session + settlement, dispute + freeze, review, withdrawal mock.
+10. Khi hoàn thành, trình bày scope và các quyết định tiền bạc chưa chốt để người dùng duyệt. Không bắt đầu code trước PROMPT 02.
+```
+
+# PROMPT 02 — Đặc tả nghiệp vụ, state machine và Student Demo Policy
+
+```text
+Thực hiện M1: tạo baseline yêu cầu. Chưa code tính năng.
+
+1. Dựa trên hai PDF, viết `docs/REQUIREMENTS.md` bằng tiếng Việt rõ ràng, phân biệt:
+   - Yêu cầu được nêu rõ trong nguồn.
+   - Suy luận kỹ thuật cần thiết để thực hiện.
+   - Quyết định còn mở trong PO_Decisions.
+   - Quy ước demo của sinh viên, không phải chính sách đã được PO phê duyệt.
+2. Định nghĩa vai trò tối thiểu: Renter, Companion, CS Agent/Admin. Viết bảng phân quyền theo hành động. Không cho người dùng tự gọi API CS hoặc xem dữ liệu riêng của người khác.
+3. Tạo state machine riêng cho Booking, Slot Hold, Payment, Escrow, Dispute, Session, Withdrawal và Review. Mỗi chuyển trạng thái phải nêu trigger, điều kiện, side effect tài chính, lịch sử cần ghi và transition bị cấm.
+4. Tạo sequence/activity mô tả các trường hợp quan trọng: booking thành công; request lặp; slot hết hạn; nạp tiền thất bại; Companion từ chối/quá 180 giây; hủy ở các ngưỡng; nghiệm thu; khiếu nại; giải ngân lỗi; rút tiền bị reject.
+5. Tạo `docs/DEMO_POLICY.md` để giải quyết tạm các điểm chưa rõ cho demo sinh viên. Chỉ đề xuất policy đơn giản, cấu hình được và gắn `DEMO_POLICY`; không tuyên bố là yêu cầu gốc. Tối thiểu phải có phương án cho:
+   - TTL giữ slot và có/không gia hạn khi payment pending.
+   - Tự động nghiệm thu sau 15 phút.
+   - Phân bổ khoản phạt khi hủy dưới 10 phút.
+   - Cách thu khoản phạt 20% khi Companion lỗi nghiêm trọng mà không làm ví khả dụng âm vô lý.
+   - Kết quả với tỷ lệ lỗi Companion dưới 80%.
+   - Hạn bổ sung chứng cứ.
+   - Cách đổi rating 1–5 sang 0–100 và mẫu số TrustScore.
+   - Cách tính 10 giờ theo ngày/múi giờ.
+   - Payment mock, chat chữ-only, withdrawal mock.
+   - Quy tắc làm tròn 88/12 nhưng luôn bảo toàn tổng số tiền.
+   - Không cho hủy thường sau khi phiên đã bắt đầu; chuyển sang dispute.
+   - Quyền CS, lý do phán quyết và ghi audit.
+   - Xử lý giao dịch lỗi để giữ Escrow nguyên trạng và chờ thao tác quản trị có log.
+6. Nếu policy chưa thể chọn an toàn, đánh dấu nhánh đó `BLOCKED_BY_POLICY`; vẫn có thể làm các phần độc lập. Không để AI âm thầm quyết định.
+7. Đưa các ví dụ tính tiền bằng số nguyên VND vào `docs/FINANCIAL_RULES.md`: top-up, hold, release 88/12, refund 100%, cancel 70/30, full penalty, withdrawal reserve/reject. Kiểm tra phương trình bảo toàn tiền; nếu khoản phạt chưa chốt thì minh họa theo DEMO_POLICY và ghi nhãn.
+8. Rà soát sự nhất quán trong workbook, đặc biệt M1 ghi D01–D15 nhưng sheet quyết định có D01–D18; ghi vấn đề vào decision log và đề xuất dùng đủ 18 quyết định.
+9. Kết thúc bằng danh sách những rule đủ điều kiện để code và rule còn blocked. Chưa viết code.
+```
+
+# PROMPT 03 — Kiến trúc tối giản, ERD, API contract và bảo toàn dữ liệu
+
+```text
+Thực hiện M2: thiết kế kiến trúc và schema. Chưa triển khai toàn bộ module nghiệp vụ.
+
+1. Kiểm tra stack repo hiện tại. Nếu repo trống, dùng modular monolith: một frontend, một backend API, một database. Ưu tiên stack dễ chạy và không trả phí. Không tạo microservices.
+2. Tạo `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, `docs/API_CONTRACT.md` và sơ đồ bằng Mermaid nếu hỗ trợ.
+3. Thiết kế ERD tối thiểu bao phủ User/Role, CompanionProfile, Game/Service, Slot/Availability, Booking/StatusHistory, Wallet, Payment, Escrow, LedgerTransaction, LedgerEntry, PlatformRevenue, Session, Message, Dispute, Evidence metadata, Review, TrustScoreLog, WithdrawalRequest, Notification (in-app), AuditLog/SystemEvent.
+4. Chỉ thêm entity khi có lý do truy vết. Nếu giản lược một entity, ghi mapping và trade-off. Không bỏ Booking, Wallet, Escrow, LedgerTransaction, LedgerEntry, StatusHistory hoặc Dispute.
+5. Với ledger, quy định rõ:
+   - Amount là integer VND; không dùng float cho tiền.
+   - Ledger transaction có idempotency/business reference duy nhất.
+   - Mỗi giao dịch có bút toán đối ứng; tổng debit = tổng credit theo quy ước đã chọn.
+   - Số dư khả dụng/ký quỹ phải có cách tính và đối soát rõ; nếu lưu cache balance, phải cập nhật cùng transaction và kiểm tra khớp với ledger.
+   - Không sửa trực tiếp số dư bằng endpoint debug.
+6. Với Booking/Slot, thiết kế chống hai người đặt cùng slot. Ưu tiên slot rời rạc và DB transaction/row lock hoặc unique constraint; không thêm Redis. Phải xử lý cùng lúc hai request.
+7. Tạo API contract có method, path, role, request/response mẫu, lỗi nghiệp vụ và idempotency cho các route chính. Tránh trả dữ liệu nhạy cảm.
+8. Tạo sơ đồ sequence cho posting ledger, hold slot, payment callback và dispute freeze/release.
+9. Nêu rõ phiên bản DB, cách migrate, seed và test. Nếu stack hiện tại không phù hợp, đưa một phương án chuyển đổi ít rủi ro trước khi thay.
+10. Review thiết kế theo WBS và TC01–TC70; lập bảng `docs/TRACEABILITY.md` nối BR/WBS/API/entity/test. Chỉ khi thiết kế nhất quán mới chuyển sang PROMPT 04.
+```
+
+# PROMPT 04 — Dựng nền tảng repo có thể chạy trên máy sinh viên
+
+```text
+Thực hiện M3 phần hạ tầng cơ bản, chỉ làm skeleton và dữ liệu nền.
+
+1. Tạo/hoàn thiện cấu trúc source rõ ràng, ví dụ `client/`, `server/`, `docs/`, `scripts/`. Nếu repo đang có cấu trúc khác hợp lý thì giữ.
+2. Cung cấp một lệnh khởi chạy dễ hiểu cho Windows và một phương án cross-platform. Docker là tùy chọn, không bắt buộc. Không yêu cầu cloud.
+3. Thiết lập `.env.example`, validate biến môi trường khi startup; không commit `.env`, mật khẩu hoặc token thật.
+4. Thiết lập database migrations, seed dữ liệu demo idempotent và health endpoint. Tạo tài khoản Renter, Companion, CS dùng riêng cho demo với hướng dẫn đổi mật khẩu; không dùng mật khẩu sản xuất.
+5. Tạo backend/frontend skeleton, logging cơ bản, error handler thống nhất, validation đầu vào, cấu hình CORS an toàn, và test runner tối giản.
+6. Nếu dùng authentication, hash mật khẩu; session/token và cookie phải được cấu hình phù hợp. Tránh tự phát minh cơ chế mật mã.
+7. Tạo README hướng dẫn setup từng bước trên máy mới: requirements, cài dependencies, database, migrate, seed, run, test, troubleshooting.
+8. Chưa làm các luồng tiền/booking. Chạy build/test/health check thực tế rồi ghi bằng chứng vào `docs/AI_PROGRESS.md`.
+```
+
+# PROMPT 05 — Đăng nhập, phân quyền, hồ sơ Companion, game và lịch rảnh
+
+```text
+Triển khai đúng các gói WBS liên quan đến nền tảng người dùng, hồ sơ, danh mục và lịch rảnh. Không triển khai checkout/ledger ở prompt này.
+
+1. Đăng nhập/đăng xuất và phân quyền Renter, Companion, CS/Admin theo thiết kế đã duyệt.
+2. Renter xem danh sách Companion theo game, hồ sơ, hạng/kinh nghiệm nếu có dữ liệu, giá/giờ và trạng thái sẵn sàng. Chỉ hiển thị thuộc tính được mô hình dữ liệu hỗ trợ.
+3. Companion được xem/sửa hồ sơ của chính mình, giá dịch vụ nếu được phép và lịch có thể nhận.
+4. Lịch sử dụng slot rời rạc để đơn giản hóa concurrency. Hiển thị rõ Available / Held / Booked / Unavailable; client không được là nguồn quyết định cuối cùng.
+5. Áp dụng kiểm tra ngày và thời lượng ở server. Chuẩn hóa cách tính 10 giờ/ngày theo `DEMO_POLICY.md`; không dựa vào giờ máy client.
+6. Không làm recommendation AI, ranking phức tạp, chat xã hội hoặc hồ sơ mạng xã hội.
+7. Viết test quyền truy cập (Renter không sửa hồ sơ người khác, Companion không xem ví người khác, user thường không truy cập API CS), validation và slot availability.
+8. Chạy test và build; ghi WBS ID, files, kết quả và blocker. Không tự tiếp tục sang booking.
+```
+
+# PROMPT 06 — Booking, request idempotency và giữ slot
+
+```text
+Triển khai module Booking/Slot theo state machine và API contract đã duyệt. Đây là module quan trọng, làm chắc trước khi tích hợp tiền.
+
+1. Khi tạo booking, validate requester, Companion, game/dịch vụ, slot, duration, giới hạn 10 giờ/ngày và không cho đặt slot không còn khả dụng.
+2. Chấp nhận `request_key` hoặc Idempotency-Key. Gửi lại cùng key/payload phải trả về booking/kết quả cũ, không tạo booking, hold hoặc side effect mới. Cùng key nhưng payload khác phải trả lỗi rõ.
+3. Chốt `total_fee_snapshot` tại thời điểm booking; thay đổi giá profile sau đó không đổi giá booking cũ.
+4. Giữ slot đến `held_until` theo `DEMO_POLICY.md`. Giải phóng hold hết hạn. Xử lý race giữa expiry và booking commit.
+5. Dùng transaction và cơ chế khóa/constraint trong DB để hai request đồng thời không chiếm cùng slot. Không giải quyết bằng kiểm tra đơn giản ở frontend.
+6. Ghi `BOOKING_STATUS_HISTORY` cho mỗi chuyển trạng thái hợp lệ, bao gồm actor/system, thời điểm, lý do và reference liên quan.
+7. Tại prompt này có thể tạo booking ở trạng thái chờ ký quỹ nhưng không được xác nhận booking đã trả tiền nếu chưa có ledger posting thành công.
+8. Viết test tương đương TC01–TC06 và các test booking/slot khác trong workbook. Chạy test concurrency lặp nhiều lần nếu môi trường cho phép.
+9. Cập nhật docs và báo cáo. Không làm payment/escrow nếu booking chưa qua các test cốt lõi.
+```
+
+# PROMPT 07 — Wallet, Ledger ghi kép, Escrow và Payment Simulator
+
+```text
+Triển khai module tài chính. Không kết nối cổng thanh toán thật hoặc tài khoản ngân hàng thật.
+
+1. Định nghĩa tài khoản sổ cái rõ ràng: ví khả dụng Renter/Companion, tài khoản Escrow, Platform Revenue và những tài khoản phụ cần thiết cho refund/penalty/withdrawal theo `FINANCIAL_RULES.md`.
+2. Viết một service chung để post ledger transaction. Tất cả thay đổi tiền phải đi qua service này; không để controller tự UPDATE balance.
+3. Mỗi posting phải nằm trong DB transaction; nếu một bút toán thất bại thì không lưu trạng thái một phần. Kiểm tra debit = credit cho mỗi journal theo thiết kế đã chốt.
+4. Lưu idempotency key/business reference unique để callback hoặc request bị gửi lặp không cộng/trừ hai lần.
+5. Tạo Payment Simulator với nút/kịch bản SUCCESS, FAILED, PENDING/timeout; callback giả lập phải đi qua cùng endpoint xử lý callback như mô hình thực. Không lưu thẻ hoặc gọi API ví thật.
+6. Nạp tiền SUCCESS chỉ cộng ví một lần; FAILED không cộng; PENDING không được xem như thành công. Có thể cung cấp kịch bản callback trùng để demo idempotency.
+7. Khi giữ Escrow: debit ví khả dụng Renter và credit tài khoản Escrow trong cùng giao dịch. Chỉ đánh dấu escrow HELD khi posting thành công.
+8. Viết reconciliation service/report so sánh ledger với các số dư hiển thị. Nếu phát hiện mismatch, báo lỗi rõ; không tự sửa dữ liệu im lặng.
+9. Thêm test callback lặp, rollback, thiếu số dư, currency integer, posting lệch, reference trùng và trường hợp lỗi DB. Nếu không thể thử một lỗi thực tế trong môi trường, giải thích và tạo test phù hợp.
+10. Chạy test từ workbook thuộc Wallet/Payment/Escrow/Ledger và ghi test ID cụ thể. Chưa làm nhánh dispute hoặc withdrawal UI.
+```
+
+# PROMPT 08 — Companion phản hồi trong 180 giây và hủy trước giờ
+
+```text
+Triển khai nhánh phản hồi booking và hủy theo BPMN.
+
+1. Sau khi ký quỹ thành công, chuyển booking sang trạng thái chờ Companion; bắt đầu hạn trả lời 180 giây theo server time. Không gửi thông báo chờ trước khi tiền được giữ thành công.
+2. Companion có thể Accept hoặc Reject trong thời gian cho phép. Reject hoặc timeout phải hoàn Escrow 100% cho Renter trong một posting duy nhất; chỉ chuyển booking sang Cancelled sau khi hoàn thành công.
+3. Nếu ledger posting thất bại, rollback toàn bộ chuyển trạng thái tài chính, giữ Escrow/booking ở trạng thái có thể đối soát và tạo operational alert; không nói rằng tiền đã hoàn.
+4. Hủy trước giờ: từ 30 phút trở lên hoàn 100%; từ 10 đến dưới 30 phút hoàn 70% cho Renter và 30% cho Companion theo hai bút toán đối ứng trong cùng transaction; dưới 10 phút áp dụng đúng DEMO_POLICY được ghi rõ và hiển thị nhãn policy demo ở tài liệu, không giả danh quy tắc đã được PO duyệt.
+5. Ghi lịch sử trạng thái, lý do hủy, số tiền, người thực hiện, chính sách được áp dụng và ledger reference. Mỗi booking chỉ xử lý quyết toán hủy một lần.
+6. Xử lý race giữa Accept/Reject/timeout/cancel bằng transition hợp lệ và idempotency. Chỉ một kết quả cuối được commit.
+7. Đảm bảo slot mở lại đúng thời điểm, không bị giải phóng nếu booking đã chuyển sang trạng thái khác cần giữ.
+8. Test mốc biên 30 phút, 10 phút, đúng 180 giây, timeout, Reject, callback/command lặp, lỗi khi refund và race giữa thao tác.
+9. Cập nhật tài liệu với nhánh còn `BLOCKED_BY_POLICY`; không bịa quyết định để ép tất cả test thành PASS.
+```
+
+# PROMPT 09 — Session, phòng phiên chơi và nghiệm thu 15 phút
+
+```text
+Triển khai Session và nghiệm thu sau khi booking được Companion chấp nhận.
+
+1. Khi đến giờ hẹn, hệ thống tạo/khởi chạy Session và ghi thời điểm bắt đầu/kết thúc dự kiến. Trạng thái Session phải liên kết đúng Booking và không cho chạy hai Session cho một Booking.
+2. Khi thời lượng thuê kết thúc, đóng Session và bắt đầu thời hạn nghiệm thu 15 phút.
+3. Cung cấp phòng phiên chơi với tin nhắn văn bản đơn giản được lưu vào database, chỉ người thuộc booking và CS được ủy quyền mới xem theo quyền. Không làm voice/video realtime, WebRTC, ghi âm hoặc lưu trữ media cloud.
+4. Nếu cần mô phỏng chat realtime, có thể dùng polling đơn giản hoặc refresh thủ công; ghi rõ đây là giải pháp demo. Không thêm dịch vụ bên ngoài có phí.
+5. Renter có thể Accept Completed hoặc Report Issue trong 15 phút. Hành vi tự động sau 15 phút phải tuân theo `DEMO_POLICY.md`; timer cần test được bằng fake clock hoặc cách tương đương, không bắt test chờ 15 phút thực.
+6. Không giải ngân trực tiếp trong controller Session. Tạo sự kiện chuyển trạng thái/command idempotent để gọi settlement service ở module tài chính.
+7. Khi Report Issue, đi vào flow Dispute và đóng băng Escrow trước khi có thể giải ngân. Không để cùng một booking vừa settlement vừa dispute.
+8. Test session đúng thời lượng, hết hạn nghiệm thu, click lặp, timer lặp, mất kết nối, race Accept/Report Issue, và quyền xem tin nhắn.
+9. Ghi rõ tính năng có thật, tính năng giả lập và giới hạn trong báo cáo WBS. Chưa tích hợp voice/audio.
+```
+
+# PROMPT 10 — Giải ngân 88/12, RMA/Dispute, bằng chứng và CS
+
+```text
+Triển khai settlement và tranh chấp dựa trên state machine, FINANCIAL_RULES và DEMO_POLICY. Không thêm quyết định chính sách mới mà không ghi log.
+
+PHẦN A — Settlement thành công
+1. Khi nghiệm thu hợp lệ, giải phóng Escrow: phần Companion 88%, nền tảng 12% theo cơ sở tính và quy tắc làm tròn đã được ghi rõ. Tổng các khoản phải đúng bằng tổng tiền được giải phóng, không sinh/mất tiền do làm tròn.
+2. Chống xử lý settlement hai lần bằng unique business reference/idempotency. Cập nhật Escrow, Ledger, Booking và StatusHistory theo thứ tự/transaction đã thiết kế; khi lỗi phải giữ trạng thái tiền nguyên vẹn.
+
+PHẦN B — Dispute
+3. Khi Renter báo sự cố, tạo một Dispute duy nhất cho booking và đóng băng toàn bộ Escrow trước khi chờ CS phán quyết. Không cho release/refund đồng thời.
+4. Cho hai bên gửi mô tả và chứng cứ minh họa. Dùng local upload hoặc chỉ lưu metadata nếu đó là lựa chọn phù hợp; giới hạn file type/size, tên file an toàn, không thực thi file tải lên. Không lưu ghi âm thật.
+5. CS xem hồ sơ, bằng chứng, Booking, Session và lịch sử tiền; yêu cầu bổ sung chứng cứ; tiền tiếp tục FROZEN trong khi chờ.
+6. CS có thể đưa ra kết quả chỉ trong các lựa chọn được DEMO_POLICY cho phép. Bắt buộc nhập lý do phán quyết; ghi người xử lý, thời điểm, evidence references và decision id. Không cho CS xem/sửa mật khẩu hay dữ liệu bí mật.
+7. Nếu lỗi Companion từ 80% trở lên: áp dụng refund 100% cho Renter và penalty theo DEMO_POLICY. Nếu dưới 80%: áp dụng nhánh đã được tài liệu/DEMO_POLICY quy định. Nêu rõ trong UI/report đâu là giả định demo.
+8. Posting refund/release/penalty phải atomically nhất quán với trạng thái Escrow/Dispute. Nếu thất bại, không đóng case như đã xử lý; giữ tiền và tạo cảnh báo/queue để quản trị viên xử lý thủ công.
+9. Test đúng ngưỡng 80%, thiếu chứng cứ, case trùng, freeze, không thể settlement khi dispute mở, lỗi posting, người không phải CS truy cập, quyết định CS thiếu lý do và xử lý tiền lặp.
+```
+
+# PROMPT 11 — Review, TrustScore và withdrawal mô phỏng
+
+```text
+Triển khai review, TrustScore và withdrawal theo WBS, dùng quy tắc đã ghi rõ trong FINANCIAL_RULES/DEMO_POLICY.
+
+1. Chỉ người thuộc Booking đã hoàn thành mới được review đối tác; mỗi người chỉ review một lần cho một booking. Review không được làm thay đổi ngược quyết toán tiền của booking.
+2. Xác định rõ cách tính TrustScore: review average, completion rate, complaint rate, direct deductions, giới hạn 0–100 và điều kiện tạm khóa dưới ngưỡng. Dùng cùng một service để mọi luồng cập nhật nhất quán; log điểm cũ, điểm mới, nguyên nhân và input values.
+3. Đảm bảo không cập nhật điểm hai lần khi sự kiện được phát lại. Test công thức bằng ví dụ tính tay trong `FINANCIAL_RULES.md`.
+4. Withdrawal là mô phỏng, không gọi ngân hàng. Khi tạo yêu cầu, reserve/debit tiền theo DEMO_POLICY; nếu bị REJECTED thì giải phóng khoản reserve bằng ledger posting, không sửa số dư trực tiếp. Nếu PROCESSING thì không cho rút cùng khoản hai lần.
+5. Lưu trạng thái PENDING → PROCESSING → COMPLETED/REJECTED, actor CS/Admin, lý do từ chối, ledger reference và audit log.
+6. Tạo màn hình tối thiểu cho Companion xem thu nhập/lịch sử rút và cho Admin xử lý yêu cầu. Không thu thập số tài khoản thật; dùng mã payout giả lập.
+7. Test review trùng, user không thuộc booking, điểm dưới ngưỡng, withdrawal lớn hơn số dư, request trùng, reject/refund reserve, double processing và quyền Admin.
+```
+
+# PROMPT 12 — Hoàn thiện frontend và trải nghiệm demo đầu-cuối
+
+```text
+Đọc API contract và các module hiện có. Hoàn thiện frontend đủ dùng cho demo; không thay đổi business rule chỉ để UI dễ làm.
+
+Các màn hình MVP:
+- Đăng nhập và điều hướng theo vai trò.
+- Renter: danh sách/tìm Companion theo game, hồ sơ, lịch rảnh, chọn slot, xem giá đã chốt, booking của tôi, ví và nạp tiền giả lập.
+- Companion: hồ sơ/lịch, booking chờ phản hồi, Accept/Reject, session, review, ví/thu nhập và withdrawal mock.
+- Session: thông tin giờ hẹn, chat chữ-only và nút nghiệm thu/báo sự cố.
+- Renter/Companion: xem trạng thái booking, số tiền giữ/hoàn/giải ngân và lịch sử phù hợp với quyền.
+- CS/Admin: hàng chờ dispute, bằng chứng, yêu cầu bổ sung, quyết định có lý do, đối soát cơ bản, sự kiện lỗi ledger và withdrawal mock.
+
+Yêu cầu UX:
+1. Hiển thị trạng thái loading, empty, validation error, business error và success; đừng chỉ dùng alert chung chung.
+2. Với thao tác tiền, hiển thị số tiền và trạng thái trước/sau, nhưng không hiển thị dữ liệu ví của người khác.
+3. Không coi button disabled/ẩn ở frontend là bảo mật; server vẫn phải kiểm tra quyền.
+4. Không tạo dashboard giả với số liệu cứng nếu không gắn nhãn demo. Dùng seeded data hoặc API thật.
+5. Giữ UI đơn giản, nhất quán, responsive cơ bản; không tốn thời gian vào animation, avatar AI, biểu đồ phức tạp hay thiết kế quá mức.
+6. Cung cấp “Demo reset” chỉ trong development và có bảo vệ; không tạo endpoint reset database ở production.
+7. Chạy build frontend và smoke test các luồng E2E: booking success; timeout/refund; cancel; session+settlement; dispute+freeze+decision; review; withdrawal reject.
+8. Báo rõ màn hình nào còn bị chặn bởi policy chưa duyệt hoặc đang dùng mock.
+```
+
+# PROMPT 13 — Kiểm thử tích hợp, bảo mật và đối soát
+
+```text
+Đóng vai QA/Reviewer độc lập. Không thêm tính năng mới trước khi kiểm tra chất lượng toàn hệ thống.
+
+1. Đối chiếu đủ 70 test case trong sheet Acceptance_Tests. Chạy những test khả thi, cập nhật trạng thái thật: PASS / FAIL / BLOCKED / NOT RUN. Không đổi BLOCKED hoặc NOT RUN thành PASS để làm đẹp báo cáo.
+2. Bắt buộc kiểm tra ít nhất các nhóm P0:
+   - Idempotency của booking/payment/settlement/refund/withdrawal.
+   - Hai Renter đặt cùng slot đồng thời.
+   - Phí snapshot không đổi khi giá Companion đổi.
+   - Số dư thiếu và nạp xong vẫn thiếu.
+   - Double-entry journal cân bằng; ledger reconciliation.
+   - Rollback khi posting lỗi; không có trạng thái nửa vời.
+   - Reject/timeout 180s và hủy ở biên 30/10 phút.
+   - Không thể release Escrow khi dispute đang mở.
+   - Không xử lý refund/release hai lần.
+   - Chỉ người đúng vai trò xem/sửa dữ liệu.
+   - Review không trùng; withdrawal reject giải phóng reserve đúng.
+3. Tạo bộ test đơn vị cho hàm tính tiền và TrustScore; dùng số nguyên VND. Thêm property/invariant test cho `debit = credit`, bảo toàn tổng khoản tiền và không âm balance khả dụng nếu policy không cho phép âm.
+4. Kiểm tra validation, injection cơ bản qua ORM/parameterized queries, quyền truy cập IDOR, lộ secrets, upload file và dữ liệu lỗi trong log. Không tuyên bố đã pentest chuyên nghiệp; chỉ mô tả các kiểm tra thật sự đã làm.
+5. Chạy migration từ database sạch, seed, build và test trên quy trình README. Nếu có Docker, chạy thêm Docker; nhưng không bắt buộc.
+6. Tạo `docs/QA_REPORT.md` với lệnh, môi trường, kết quả, lỗi còn lại, test chưa chạy và rủi ro. Lập danh sách bug theo mức Critical/High/Medium/Low, ưu tiên sửa Critical/High.
+7. Chỉ sửa lỗi trong phạm vi. Sau mỗi fix, chạy lại test liên quan và regression suite. Không thay policy tài chính trong giai đoạn QA nếu không ghi quyết định.
+```
+
+# PROMPT 14 — Đồng bộ BPMN, ERD, Class Diagram, API, code và WBS
+
+```text
+Thực hiện rà soát tính nhất quán tài liệu–thiết kế–code trước khi viết báo cáo cuối.
+
+1. Đọc lại hai PDF gốc, WBS workbook, state machines, ERD, class/architecture diagrams, API contract và code thực tế.
+2. Tạo `docs/TRACEABILITY_FINAL.md` nối: BR/nguồn → WBS ID → module/file/API/entity → test ID → bằng chứng thực thi.
+3. Cập nhật sơ đồ BPMN/sequence/state diagram/ERD/Class Diagram để phản ánh đúng implementation. Không vẽ tính năng chưa làm như thể đã chạy. Với thay đổi so với PDF, ghi rõ đó là giản lược, DEMO_POLICY hay DEFERRED.
+4. Kiểm tra entity có trong ERD nhưng không dùng, code có bảng/module không được đặc tả, trạng thái không có transition, API không có test và test không gắn requirement. Nêu cách xử lý từng sai khác.
+5. Đối chiếu tất cả WBS ID trong `WBS_Detail` với `AI_PROGRESS.md`: chỉ đánh Done khi có sản phẩm bàn giao và bằng chứng; đánh Deferred/Blocked với lý do. Không cần hoàn thành mọi item nếu đã được thống nhất loại khỏi scope, nhưng phải minh bạch.
+6. Xác minh các quyết định D01–D18: trạng thái, ai duyệt, có phải DEMO_POLICY không, và nơi tác động trong code.
+7. Chỉ cập nhật sơ đồ/tài liệu sau khi đã kiểm tra thực tế code. Không tự sửa logic code để giống sơ đồ cũ nếu quyết định thiết kế mới có lý do tốt; ghi thay đổi.
+```
+
+# PROMPT 15 — Báo cáo đồ án, hướng dẫn triển khai và gói bảo vệ
+
+```text
+Chuẩn bị bộ bàn giao học thuật dựa trên code chạy thật, test report và tài liệu đã được đồng bộ. Không bịa số liệu hoặc claim.
+
+Tạo/hoàn thiện:
+1. `README.md`: mô tả ngắn, chức năng, công nghệ, yêu cầu cài đặt, cấu hình môi trường, migrate, seed, chạy, test, tài khoản demo, troubleshooting và giới hạn.
+2. `docs/FINAL_REPORT_OUTLINE.md` hoặc báo cáo theo template môn học nếu đã có: bối cảnh/vấn đề; mục tiêu/phạm vi; tác nhân và yêu cầu; BPMN; kiến trúc; ERD/Class Diagram; thiết kế Booking–Escrow–Ledger; triển khai; test và kết quả; giới hạn; hướng phát triển.
+3. Bảng phân biệt hoàn toàn rõ: tính năng thực, tính năng mock, tính năng deferred và giả định demo chưa được PO duyệt.
+4. `docs/DEMO_SCRIPT.md`: kịch bản demo 8–12 phút theo các luồng quan trọng, dữ liệu cần chuẩn bị, bước thao tác, kết quả mong đợi, các trang/ledger entries cần chỉ ra và phương án dự phòng nếu demo lỗi.
+5. `docs/DEFENSE_QA.md`: câu hỏi phản biện có thể gặp và câu trả lời trung thực về double-entry ledger, idempotency, concurrency, Escrow, rollback, phân quyền, mock gateway, lý do giản lược voice/cloud, các policy chưa duyệt và hạn chế.
+6. Danh mục ảnh chụp bằng chứng, test report, ERD/BPMN, version/commit của bản cuối. Không đưa mật khẩu thật vào báo cáo; tài khoản demo phải ghi là tài khoản minh họa.
+7. Nếu chưa có template nộp bài, tạo outline và nội dung kỹ thuật; không tự bịa yêu cầu định dạng của trường. Yêu cầu người dùng cung cấp template nếu điều đó ảnh hưởng trực tiếp đến cấu trúc final.
+8. Cuối cùng kiểm tra lại clean setup: clone/copy repo mới, cài dependencies, migrate, seed, run, chạy smoke tests. Ghi đúng các bước đã xác nhận.
+```
+
+# PROMPT 16 — Prompt xử lý một gói WBS đơn lẻ (dùng lặp lại)
+
+Dùng mẫu này khi một WBS item bị lỗi, quá lớn hoặc cần chia nhỏ. Thay phần trong ngoặc vuông trước khi gửi.
+
+```text
+Hãy xử lý riêng gói công việc WBS [WBS ID + tên]. Không làm lan sang các WBS khác.
+
+Ngữ cảnh:
+- WBS workbook: `docs/source/INSTASQUAD_WBS_Detailed.xlsx`.
+- Quy tắc nghiệp vụ: `docs/REQUIREMENTS.md`, `docs/DEMO_POLICY.md`, `docs/FINANCIAL_RULES.md`.
+- Trạng thái hiện tại: `docs/AI_PROGRESS.md`.
+- Acceptance test liên quan: [TC IDs nếu biết; nếu không, tìm trong workbook].
+
+Trước khi sửa:
+1. Đọc đúng WBS row, phụ thuộc, DoD, code liên quan và git diff.
+2. Nói rõ điều kiện đầu vào, file sẽ sửa và test để chứng minh Done.
+3. Nếu DoD không tương thích implementation hiện tại, nêu nguyên nhân trước khi thay đổi phạm vi.
+
+Thực hiện:
+- Chỉ làm phần này, ưu tiên thay đổi nhỏ, dễ review và dễ rollback.
+- Không thêm dịch vụ trả phí hoặc dependency lớn nếu có cách đơn giản hơn.
+- Không thay đổi rule tiền/permission/state machine ngoài phạm vi.
+- Thêm/cập nhật test trước hoặc cùng lúc với logic.
+
+Nghiệm thu:
+- Chạy test liên quan và ghi chính xác lệnh/kết quả.
+- Cập nhật WBS status, traceability, `AI_PROGRESS.md` và quyết định nếu có.
+- Chỉ đánh Done khi toàn bộ DoD đạt và có bằng chứng; nếu không thì ghi Blocked/Partial cùng việc còn lại.
+- Kết thúc bằng báo cáo gọn: changed files, tests, status, blocker và bước kế tiếp. Không làm tiếp WBS khác cho đến khi được yêu cầu.
+```
+
+# PROMPT 17 — Debug/fix mà không phá phần đã chạy
+
+```text
+Điều tra lỗi sau trong INSTASQUAD: [dán lỗi, bước tái hiện, expected/actual].
+
+Không sửa theo phỏng đoán. Làm theo thứ tự:
+1. Đọc log, stack trace, git diff và test liên quan; tái hiện lỗi nếu có thể.
+2. Nêu giả thuyết nguyên nhân và bằng chứng phân biệt các giả thuyết.
+3. Tạo test tái hiện lỗi hoặc script tái hiện tối thiểu trước khi fix nếu khả thi.
+4. Sửa thay đổi nhỏ nhất đủ giải quyết nguyên nhân gốc; không xóa test, không nới assertion và không bỏ validation để cho test xanh.
+5. Chạy test tái hiện, test regression liên quan, lint/build. Báo những test không chạy được.
+6. Nếu lỗi liên quan tiền, trạng thái hoặc race condition, kiểm tra transaction, idempotency, unique constraints và ledger balance; không “sửa” bằng việc cập nhật số dư trực tiếp.
+7. Cập nhật `docs/AI_PROGRESS.md` và bug log. Không chuyển WBS thành Done nếu chỉ che được triệu chứng.
+```
+
+# PROMPT 18 — Review cuối như giảng viên phản biện khó tính
+
+```text
+Đóng vai reviewer học thuật/kỹ thuật độc lập, không phải người viết code của module. Đánh giá INSTASQUAD theo bằng chứng trong repo.
+
+Hãy review:
+- Độ đầy đủ của hai luồng BPMN và các nhánh lỗi.
+- Sự nhất quán giữa yêu cầu, state machine, ERD/Class Diagram/API/code/test.
+- Tính đúng của ledger ghi kép, bảo toàn tiền, idempotency, rollback và concurrency.
+- Kiểm soát quyền, dữ liệu demo, xử lý lỗi và khả năng setup trên máy khác.
+- Mức hợp lý của phần lược giản cho sinh viên; phần mock/deferred có minh bạch không.
+- Chất lượng test, khả năng tái hiện kết quả và nguy cơ demo thất bại.
+- Những claim trong báo cáo không được code hoặc test chứng minh.
+
+Đầu ra:
+1. Danh sách lỗi Critical/High/Medium/Low, mỗi lỗi có bằng chứng cụ thể và cách tái hiện.
+2. Chấm theo rubric 0–5 cho: nghiệp vụ, kiến trúc/dữ liệu, tính đúng tài chính, kiểm thử, UX/demo, tài liệu/truy vết; giải thích ngắn cho mỗi điểm.
+3. Danh sách 5 việc có giá trị cao nhất cần sửa trước khi nộp; không đề xuất thêm tính năng trang trí.
+4. Các phần chưa thể kết luận vì thiếu dữ liệu/bằng chứng.
+5. Không tự tuyên bố sản phẩm đạt mức xuất sắc; chỉ kết luận dựa trên bằng chứng thực tế và giới hạn đã nêu.
+```
+
+---
+
+## Lựa chọn triển khai phù hợp với đồ án sinh viên
+
+| Thành phần trong WBS | Không nên mặc định làm kiểu sản phẩm thương mại | Phương án thay thế đủ để chứng minh nghiệp vụ |
+|---|---|---|
+| VNPay/MoMo | Tích hợp nhiều cổng và xử lý tiền thật | Một `Payment Simulator`, mô phỏng PENDING/SUCCESS/FAILED và callback lặp; có thể bổ sung sandbox một cổng nếu môn học bắt buộc. |
+| Chuyển tiền Companion | Kết nối ngân hàng/payout thật | Withdrawal mock có trạng thái, reserve tiền, approve/reject và ledger reference. |
+| Chat/thoại realtime | WebRTC, media server, ghi âm, lưu cloud | Phòng chat chữ đơn giản; lưu tin nhắn, thời gian và người gửi. Không ghi âm thật. |
+| Lịch chạy nền | Hạ tầng scheduler phân tán/queue | Job đơn giản chạy cùng backend hoặc kiểm tra deadline khi API được gọi; thiết kế timer test được bằng fake clock. Ghi rõ hạn chế khi app tắt. |
+| Khóa slot khi nhiều người đặt | Redis distributed lock/microservices | DB transaction + row lock/unique constraint và kiểm thử hai request đồng thời. |
+| Hạ tầng | Kubernetes, microservices, cloud trả phí | Modular monolith, một database, cấu hình local; Docker là tùy chọn. |
+| File bằng chứng | Dịch vụ lưu media và audio đắt tiền | File demo giới hạn dung lượng lưu local hoặc chỉ metadata; kiểm tra định dạng, quyền truy cập và không ghi âm thật. |
+| Email/SMS | SMTP/SMS gateway thật | Thông báo trong app; log ra console ở môi trường demo. |
+| Analytics | Data warehouse/BI riêng | Một trang Admin với số liệu từ DB và báo cáo CSV đơn giản nếu cần. |
+| Khôi phục sự cố tài chính | Tự động retry phân tán và hệ thống kiểm toán lớn | Transaction rollback, log lỗi, hàng chờ xử lý thủ công có kiểm soát và nút reconcile/retry có audit. |
+| Gợi ý Companion/AI | Recommendation engine hoặc chatbot không nằm trong luồng cốt lõi | Bộ lọc theo game, giá, hạng và lịch rảnh; đủ đáp ứng nhu cầu tìm kiếm trong phạm vi. |
+
+## Định nghĩa “hoàn thành đủ tốt để bảo vệ”
+
+Đồ án chưa cần có mọi tính năng của một nền tảng thương mại thực. Bản MVP có giá trị cao khi chứng minh được:
+
+1. Một Renter đặt được Companion và không thể chiếm slot đã bị giữ bởi booking khác.
+2. Ví, Escrow, Ledger thể hiện đúng dòng tiền; thao tác lặp không cộng/trừ hai lần; tổng debit/credit cân bằng.
+3. Các nhánh reject/timeout/cancel/refund và settlement có thể demo bằng dữ liệu seed.
+4. Khiếu nại đóng băng Escrow; chỉ quyết định CS hợp lệ mới được giải ngân/hoàn tiền; lỗi ghi sổ không làm tiền ở trạng thái nửa vời.
+5. Có test evidence, sơ đồ khớp code và tài liệu nói trung thực về các mock, giả định và phần deferred.
+
+**Quy tắc cuối cùng:** ưu tiên giảm độ rộng, không giảm tính đúng của đường tiền. Một luồng Booking–Escrow–Ledger đơn giản nhưng có test và truy vết tốt có giá trị hơn nhiều tính năng lớn nhưng chỉ chạy ở trường hợp thuận lợi.

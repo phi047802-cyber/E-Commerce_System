@@ -316,3 +316,19 @@ Quy tắc cập nhật trạng thái: `Not Started` | `In Progress` | `Blocked` 
     - **Kết quả Build & Test Thực tế (PROMPT 14)**:
       - `npm test`: **16/16 test files PASS, 160/160 tests PASS (100% GREEN)**.
       - Hệ thống đạt trạng thái sẵn sàng cao nhất phục vụ chấm điểm và bảo vệ đồ án tốt nghiệp.
+
+
+---
+
+## 4. Giai đoạn Nâng cấp Đa nền tảng (Chỉ thị Auto-pilot 18/11/2026)
+
+| Bước | Nội dung | Trạng thái | Bằng chứng |
+|:---:|:---|:---:|:---|
+| B1 | Audit code hiện tại & đọc tài liệu chuẩn (Prompt Chain + 3 nguồn) | `Done` | `docs/UPGRADE_AUDIT_MAP.md`, D32–D37 |
+| B2 | Bộ tài liệu Quy trình thống nhất, Pháp lý, Non-gamer, Goals | `Not Started` | — |
+| B3 | SQL Server + nâng cấp Backend Core | `Not Started` | — |
+| B4 | Tinh chỉnh Web + E2E | `Not Started` | — |
+| B5 | Mobile Flutter + Deep Link | `Not Started` | — |
+| B6 | QA tổng thể, đối soát Ledger, báo cáo | `Not Started` | — |
+
+- **2026-11-18 (B1)**: Snapshot toàn bộ working tree vào `main` (commit `e942ee2`), đổi `master`→`main`, tạo `dev`. Phát hiện: chưa có remote Git; SQL Server cục bộ tắt TCP; Flutter chưa cài; vitest baseline trên SQLite bị crash worker (`ERR_IPC_CHANNEL_CLOSED`) giữa chừng → đo lại trên SQL Server ở B3.
