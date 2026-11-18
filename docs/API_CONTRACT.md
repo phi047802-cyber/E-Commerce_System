@@ -324,3 +324,24 @@ sequenceDiagram
     API-->>R: Thông báo nhận tiền hoàn + bồi thường
     API-->>C: Thông báo kết quả phán quyết và trừ phạt
 ```
+
+---
+
+## Bổ sung Nâng cấp Đa nền tảng (2026-11-18) — dùng chung Web & Mobile
+
+| Method | Path | Role | Mô tả | Lỗi nghiệp vụ |
+|---|---|---|---|---|
+| GET | `/api/games?category=GAME\|SOCIAL` | Public | Danh mục dịch vụ; trường mới `category`, `description` (D35) | — |
+| GET | `/api/companions?category=SOCIAL` | Public | Lọc Companion theo nhóm dịch vụ | — |
+| POST | `/api/analytics/visit` | Public | Thêm `utm_source`, `utm_medium`, `utm_campaign`, `landing_path` (đã làm sạch) | `VALIDATION_ERROR` |
+| GET | `/api/legal/terms` | Public | Phiên bản điều khoản hiện hành `TOS-2026.11`, điều khoản chính, bảng vi phạm V01–V08 | — |
+| GET | `/api/legal/acceptance` | Đăng nhập | Trạng thái chấp thuận của tôi | — |
+| POST | `/api/legal/accept` | Đăng nhập | `{ terms_version, channel: WEB\|MOBILE }` — idempotent | 422 `TERMS_VERSION_MISMATCH` |
+| GET | `/api/legal/violations/me` | Đăng nhập | Vi phạm của tôi | — |
+| GET | `/api/legal/violations?user_id=` | CS_AGENT, ADMIN | Danh sách vi phạm | 403 |
+| POST | `/api/legal/violations` | CS_AGENT, ADMIN | `{ user_id, code: V01..V08, note ≥10 ký tự, booking_id? }` → trừ TrustScore (`PENALTY_VIOLATION_Vxx`), khóa theo bậc thang tái phạm | 422 `VIOLATION_NOT_APPLICABLE`, `VIOLATION_SUBJECT_INVALID` |
+| POST | `/api/auth/register` | Public | Trường mới tùy chọn `accept_terms_version`, `channel` | — |
+| POST | `/api/auth/login` | Public | Tài khoản tạm khóa còn hạn → 403 `ACCOUNT_SUSPENDED`; hết hạn → tự mở khóa | 403 |
+| POST | `/api/bookings` | RENTER | **Mới:** yêu cầu đã chấp thuận điều khoản hiện hành | 403 `TERMS_NOT_ACCEPTED` |
+| GET | `/go/{discover\|companion/:id\|booking/:id\|wallet}` | Public (HTML) | Landing/Redirect Deep Link `instasquad://…`, ghi nhận kênh UTM | 404 |
+| GET | `/.well-known/assetlinks.json`, `/.well-known/apple-app-site-association` | Public | Android App Links / iOS Universal Links | — |

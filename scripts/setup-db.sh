@@ -1,21 +1,9 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 set -e
-
-echo "========================================================"
-echo " INSTASQUAD - Database Migration and Seed"
-echo "========================================================"
-
-if [ ! -f .env ]; then
-    cp .env.example .env
-fi
-
-echo "[1/3] Generating Prisma Client..."
+[ -f .env ] || cp .env.example .env
+docker compose up -d mssql
 npx prisma generate
-
-echo "[2/3] Applying Migrations..."
-npx prisma migrate dev --name init
-
-echo "[3/3] Seeding Initial Demo Data..."
+node scripts/db/ensure-database.mjs
+npx prisma migrate deploy
 npm run prisma:seed
-
-echo "[DONE] Database setup completed successfully!"
+echo "Database ready."

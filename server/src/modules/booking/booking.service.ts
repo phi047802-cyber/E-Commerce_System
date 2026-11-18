@@ -15,6 +15,7 @@ import { settlementService } from '../ledger/settlement.service.js';
 import { disputeService, CreateDisputeInput } from '../dispute/dispute.service.js';
 import { SYSTEM_ACCOUNTS } from '../ledger/ledger.types.js';
 import { logger } from '../../common/logger.js';
+import { legalService } from '../legal/legal.service.js';
 import { userMessages, formatShortId, FormattedNotification } from '../../common/messages.vi.js';
 
 export class BookingService {
@@ -29,6 +30,9 @@ export class BookingService {
         'EMAIL_NOT_VERIFIED'
       );
     }
+
+    // 0b. Bắt buộc chấp thuận điều khoản hiện hành trước khi giao dịch (TERMS_AND_CONTRACTS.md B.6, G6)
+    await legalService.assertTermsAccepted(renterId);
 
     const now = new Date();
 

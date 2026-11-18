@@ -24,6 +24,8 @@ import { newsRouter } from './modules/news/news.router.js';
 import { devRouter } from './modules/dev/dev.router.js';
 import { notificationRouter } from './modules/notification/notification.router.js';
 import { profileRouter } from './modules/profile/profile.router.js';
+import { legalRouter } from './modules/legal/legal.router.js';
+import { growthRouter } from './modules/growth/growth.router.js';
 import { handleSepayWebhook } from './modules/payment/payment.controller.js';
 import { sepayWebhookSchema } from './modules/payment/payment.dto.js';
 import { validateBody } from './middleware/validate.js';
@@ -119,6 +121,10 @@ app.use('/api/news', newsRouter);
 app.use('/api/dev', devRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/me', profileRouter);
+app.use('/api/legal', legalRouter);
+
+// Deep Link landing (/go/*) & App Links (/.well-known/*) — phải đứng trước SPA fallback
+app.use(growthRouter);
 
 // 4. Webhook SePay chính thức theo đặc tả Đợt C: POST /api/webhooks/sepay
 app.post('/api/webhooks/sepay', validateBody(sepayWebhookSchema), asyncHandler(handleSepayWebhook));
