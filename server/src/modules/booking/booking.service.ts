@@ -85,7 +85,7 @@ export class BookingService {
       },
     });
 
-    if (!slot) {
+    if (!slot || slot.status === 'REMOVED') {
       throw new NotFoundError('Không tìm thấy khung giờ đặt lịch được yêu cầu.');
     }
 

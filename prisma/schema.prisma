@@ -26,6 +26,10 @@ model User {
   favorite_games String? @db.NVarChar(Max) // Danh sách game yêu thích (chuỗi JSON hoặc danh sách phân tách dấu phẩy)
   google_id     String?  @unique // Google OAuth2 Account ID (FR-001)
   is_onboarding_completed Boolean @default(true) // Trạng thái hoàn thiện hồ sơ sau đăng nhập Google (FR-001)
+  // Kênh nguồn first-touch lúc đăng ký (G9 — conversion theo utm_source). Web/App gửi UTM đã lưu từ lượt truy cập/deep link đầu tiên.
+  signup_utm_source   String?
+  signup_utm_medium   String?
+  signup_utm_campaign String?
   created_at    DateTime @default(now())
 
   // Quan hệ
@@ -51,6 +55,7 @@ model User {
   violations          ViolationRecord[]    @relation("ViolationSubject")
   violations_recorded ViolationRecord[]    @relation("ViolationRecorder")
 
+  @@index([signup_utm_source])
   @@map("users")
 }
 
@@ -114,7 +119,7 @@ model SlotCalendar {
   profile_id String
   start_time DateTime
   end_time   DateTime
-  status     String   @default("AVAILABLE") // AVAILABLE, HELD, BOOKED
+  status     String   @default("AVAILABLE") // AVAILABLE, HELD, BOOKED, REMOVED (xóa mềm khi slot từng có đơn)
   held_until DateTime?
   created_at DateTime @default(now())
 

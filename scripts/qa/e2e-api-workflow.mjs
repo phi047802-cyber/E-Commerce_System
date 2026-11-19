@@ -48,8 +48,8 @@ const key = (p) => `qa-${p}-${Date.now()}-${++seq}`;
  * thì lùi thêm 1 giờ, tối đa 24 lần.
  */
 async function newSlot(companionToken, hoursAhead) {
-  for (let shift = 0; shift < 24; shift++) {
-    const start = new Date(Date.now() + (hoursAhead + shift) * 3600_000);
+  for (let shift = 0, day = 0; shift < 24 && day < 30; shift++) {
+    const start = new Date(Date.now() + (hoursAhead + shift + day * 24) * 3600_000);
     start.setUTCMinutes(0, 0, 0);
     const end = new Date(start.getTime() + 3600_000);
     const r = await call('POST', '/api/companion/slots', {
@@ -57,6 +57,8 @@ async function newSlot(companionToken, hoursAhead) {
       body: { start_time: start.toISOString(), end_time: end.toISOString() },
     });
     if (r.data?.slot_id) return r.data;
+    // Chạy lại nhiều lượt trên cùng DB: trùng slot → lùi 1 giờ; chạm trần 10 giờ/ngày → sang ngày kế tiếp
+    if (r.code === 'COMPANION_DAILY_LIMIT_EXCEEDED') { day += 1; shift = -1; continue; }
     if (r.code !== 'SLOT_OVERLAPPING') throw new Error(`Tạo slot thất bại: ${r.status} ${r.code} ${r.json?.error?.message}`);
   }
   throw new Error('Không tìm được khung giờ trống để tạo slot');
@@ -252,9 +254,18 @@ async function main() {
   console.log('\n[E] Chặn giao dịch khi chưa chấp thuận điều khoản');
   const email = `qa.mobile.${Date.now()}@instasquad.test`;
   const newPw = `Qa#${crypto.randomBytes(6).toString('hex')}`;
-  const reg = await call('POST', '/api/auth/register', { body: { email, password: newPw, display_name: 'QA Mobile', role: 'RENTER', is_over_18: true } });
+  const reg = await call('POST', '/api/auth/register', {
+    body: { email, password: newPw, display_name: 'QA Mobile', role: 'RENTER', is_over_18: true, utm_source: 'Threads', utm_campaign: 'qa-e2e' },
+  });
   const newbie = reg.status === 201 ? await login(email, newPw).catch(() => null) : null;
   check('Đăng ký tài khoản mới rồi đăng nhập', !!newbie, `register HTTP ${reg.status}`);
+  if (newbie) {
+    // G9: kênh first-touch được lưu (làm sạch về chữ thường) và tính vào bảng kênh của Admin
+    const admin = await login('admin@instasquad.test');
+    const metrics = (await call('GET', '/api/admin/dashboard/metrics', { token: admin.token })).data;
+    const threads = metrics?.channels?.breakdown?.find((r) => r.source === 'threads');
+    check('G9: đăng ký kèm utm_source được tính vào kênh "threads"', (threads?.signups ?? 0) >= 1, `signups=${threads?.signups}`);
+  }
   if (newbie) {
     const sE = await newSlot(c3.token, 39);
     const unverified = await call('POST', '/api/bookings', { token: newbie.token, body: { slot_id: sE.slot_id, request_key: key('unverified') } });

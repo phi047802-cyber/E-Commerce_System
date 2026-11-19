@@ -326,6 +326,16 @@ export const userMessages = {
       type: 'BOOKING_CANCELLED',
     };
   },
+
+  // 22. Nhắc đánh giá sau phiên (G10) — gửi 1 lần cho bên chưa đánh giá
+  reviewReminder(counterpartName: string, bookingId: string): FormattedNotification {
+    return {
+      title: 'Bạn chưa đánh giá buổi hẹn',
+      message: `Hãy dành 1 phút đánh giá ${counterpartName} cho đơn ${formatShortId('BK', bookingId)}. Đánh giá giúp cộng đồng chọn đúng người và cập nhật TrustScore.`,
+      target_url: `/don-hang/${bookingId}`,
+      type: 'REVIEW_REMINDER',
+    };
+  },
 };
 
 /**

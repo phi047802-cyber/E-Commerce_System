@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { extractUtm } from '../../common/utm.js';
 import crypto from 'crypto';
 import { prisma } from '../../common/prisma.js';
 import { sendSuccess } from '../../common/response.js';
@@ -178,6 +179,7 @@ export async function getCompanions(req: Request, res: Response): Promise<void> 
       slots: {
         where: {
           start_time: { gte: now },
+          status: { not: 'REMOVED' },
         },
         orderBy: { start_time: 'asc' },
       },
@@ -391,6 +393,7 @@ export async function getCompanionById(req: Request, res: Response): Promise<voi
       slots: {
         where: {
           start_time: { gte: now },
+          status: { not: 'REMOVED' },
         },
         orderBy: { start_time: 'asc' },
       },
@@ -467,6 +470,7 @@ export async function getCompanionSlots(req: Request, res: Response): Promise<vo
     where: {
       profile_id: id,
       start_time: { gte: now },
+      status: { not: 'REMOVED' },
     },
     orderBy: { start_time: 'asc' },
   });
@@ -521,16 +525,5 @@ export async function recordVisit(req: Request, res: Response): Promise<void> {
 
 
 /** Chuẩn hóa tham số UTM (G8 — đo phễu theo kênh Social). Chỉ nhận chuỗi ngắn, chữ/số/-/_ . */
-export function extractUtm(src: Record<string, unknown> | undefined): {
-  utm_source?: string; utm_medium?: string; utm_campaign?: string; landing_path?: string;
-} {
-  const clean = (v: unknown, max = 64) =>
-    typeof v === 'string' && v.trim() !== '' ? v.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, max) || undefined : undefined;
-  const landing = typeof src?.landing_path === 'string' && src.landing_path.startsWith('/') ? src.landing_path.slice(0, 200) : undefined;
-  return {
-    utm_source: clean(src?.utm_source),
-    utm_medium: clean(src?.utm_medium),
-    utm_campaign: clean(src?.utm_campaign, 100),
-    landing_path: landing,
-  };
-}
+// extractUtm chuyển sang common/utm.ts (dùng chung với đăng ký — G9); re-export để giữ tương thích.
+export { extractUtm } from '../../common/utm.js';

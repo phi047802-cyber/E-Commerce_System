@@ -12,6 +12,8 @@ const envSchema = z.object({
   SLOT_HOLD_TTL_MINUTES: z.coerce.number().default(10),
   FULFILLMENT_ACCEPTANCE_TIMEOUT_MINUTES: z.coerce.number().default(15),
   BOOKING_RESPONSE_TIMEOUT_SECONDS: z.coerce.number().default(180),
+  // G10: nhắc đánh giá sau khi đơn hoàn tất bao lâu (phút); chỉ nhắc đơn hoàn tất trong 7 ngày gần nhất
+  REVIEW_REMINDER_DELAY_MINUTES: z.coerce.number().int().min(0).default(60),
   MAX_COMPANION_HOURS_PER_DAY: z.coerce.number().default(10),
   MIN_COMPANION_HOURLY_RATE: z.coerce.number().default(30000),
   MAX_COMPANION_HOURLY_RATE: z.coerce.number().default(1000000),

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../../common/prisma.js';
 import { env } from '../../config/env.js';
-import { extractUtm } from '../catalog/catalog.controller.js';
+import { extractUtm } from '../../common/utm.js';
 import { logger } from '../../common/logger.js';
 
 /**

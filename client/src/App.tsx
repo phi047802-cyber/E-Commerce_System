@@ -60,6 +60,9 @@ import { Avatar } from './components/common/Avatar';
 import { getDisputeReasonLabel, formatShortId } from './common/messages.vi';
 import { TermsAcceptanceModal } from './components/legal/TermsAcceptanceModal';
 import { ViolationPanel } from './components/legal/ViolationPanel';
+import { DisputeSlaReport } from './components/admin/DisputeSlaReport';
+import { ChannelConversionPanel } from './components/admin/ChannelConversionPanel';
+import { rememberFirstTouch, utmFromUrl } from './common/attribution';
 import { WalletLedgerPanel } from './components/WalletLedgerPanel';
 import { NonGamerServices } from './components/NonGamerServices';
 import { UnifiedWorkflowPage } from './pages/UnifiedWorkflowPage';
@@ -658,6 +661,8 @@ export default function App() {
 
     // Ghi nhận lượt truy cập ẩn danh (Anonymous Session Counter - không lưu thông tin cá nhân)
     try {
+      // Kênh nguồn first-touch (G9): giữ UTM của lượt truy cập đầu tiên để gửi kèm khi đăng ký
+      rememberFirstTouch();
       let sessionKey = sessionStorage.getItem('instasquad_anon_session');
       if (!sessionKey) {
         sessionKey = 'sess-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now();
@@ -665,7 +670,8 @@ export default function App() {
         fetch('/api/analytics/visit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_key: sessionKey }),
+          // Gửi kèm utm_* của URL hiện tại (G8) — trước đây chỉ gửi session_key nên phiên Web luôn thiếu kênh
+          body: JSON.stringify({ session_key: sessionKey, landing_path: window.location.pathname, ...utmFromUrl() }),
         }).catch(() => {});
       }
     } catch {
@@ -3540,6 +3546,9 @@ export default function App() {
             {/* Ghi nhận vi phạm điều khoản (TERMS_AND_CONTRACTS.md Phần C, D40) */}
             <ViolationPanel token={token} onToast={addToast} />
 
+            {/* G10: Báo cáo SLA khiếu nại theo tuần (mục tiêu 45 phút, D25) */}
+            <DisputeSlaReport token={token} />
+
             {/* DISPUTES QUEUE MANAGEMENT (M6 - PROMPT 10, BR-16, BR-17, BR-18, TC21-TC26) */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-800 pb-3">
@@ -3820,7 +3829,7 @@ export default function App() {
                             {al.severity}
                           </span>
                           <span className="font-bold text-white text-sm">{al.alert_type}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">#{al.alert_id.slice(0, 8)}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">#{String(al.alert_id).slice(0, 8)}</span>
                         </div>
                         <p className="text-[11px] text-slate-300">{al.message}</p>
                       </div>
@@ -4208,6 +4217,9 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* G8/G9: Phiên truy cập, đăng ký và conversion theo kênh nguồn (utm_source, first-touch) */}
+            <ChannelConversionPanel channels={adminMetrics?.channels} />
 
             {/* Daily Stats Table & eKYC Approvals */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
