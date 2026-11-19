@@ -49,7 +49,7 @@ Quy tắc cập nhật trạng thái: `Not Started` | `In Progress` | `Blocked` 
 > [!NOTE]
 > **Minh bạch hóa phân loại trạng thái hoàn thành (Scope Reconciliation)**:
 > - **178 gói công việc**: Đã triển khai mã nguồn đầy đủ, tích hợp và có bằng chứng kiểm thử tự động xác nhận (`Done — Fully Implemented`).
-> - **17 gói công việc**: Được thay thế bằng giải pháp mô phỏng nội bộ (`MOCKED`) hoặc hoãn lại (`DEFERRED`) theo đúng thỏa thuận tại [SCOPE_BASELINE.md](file:///c:/Users/pc/Documents/INSTASQUAD/docs/SCOPE_BASELINE.md) và biên bản phê duyệt của PO:
+> - **17 gói công việc**: Được thay thế bằng giải pháp mô phỏng nội bộ (`MOCKED`) hoặc hoãn lại (`DEFERRED`) theo đúng thỏa thuận tại [SCOPE_BASELINE.md](SCOPE_BASELINE.md) và biên bản phê duyệt của PO:
 >   1. *Gọi thoại/video WebRTC trực tiếp*: Hoãn lại (`DEFERRED`), thay bằng kênh chat văn bản WebSocket nội bộ có kiểm duyệt từ khóa (D10).
 >   2. *Cổng thanh toán & Ngân hàng thật*: Thay bằng Payment Simulator nội bộ và Mock Payout Engine (D09, D11).
 >   3. *Hạ tầng phân tán Redis / Kafka*: Hoãn lại (`DEFERRED`), giải quyết bài toán đồng thời bằng Atomic DB Transactions nguyên tử.

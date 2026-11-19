@@ -16,7 +16,7 @@
 1. * **Mất dấu vết kiểm toán (No Audit Trail)**: Nếu `UPDATE` trực tiếp, ta chỉ biết số dư hiện tại là bao nhiêu, hoàn toàn không biết tại sao nó thay đổi, ai thay đổi, do đơn hàng nào hay do lỗi hệ thống.
 2. * **Không thể chứng minh tính bảo toàn tiền tệ**: Trong kế toán, tiền không tự nhiên sinh ra hay mất đi. Hệ thống Sổ cái ghi kép bắt buộc mỗi biến động phải có ít nhất 2 dòng bút toán đối ứng: một bên ghi Nợ (Debit), một bên ghi Có (Credit) sao cho $\sum \text{Debit} \equiv \sum \text{Credit}$.
 3. * **Khả năng đối soát và phục hồi sai lệch**: Bằng cách lưu `balance_after` trên từng `LedgerEntry`, kiểm toán viên có thể chạy hàm `reconciliationService.runReconciliation()` để tính toán lại toàn bộ lịch sử từ đầu đến cuối. Nếu có bất kỳ sự can thiệp trái phép nào vào database, hệ thống sẽ phát hiện độ lệch phương sai ($\text{Variance} \ne 0$) ngay lập tức.*
-*Trong code của nhóm tại [`server/src/modules/ledger/ledger.service.ts`](file:///c:/Users/pc/Documents/INSTASQUAD/server/src/modules/ledger/ledger.service.ts), toàn bộ các controller bị cấm gọi `wallet.update()`, mọi biến động tiền đều phải đi qua `LedgerService.postTransaction()` trong 1 transaction an toàn."*
+*Trong code của nhóm tại [`server/src/modules/ledger/ledger.service.ts`](../server/src/modules/ledger/ledger.service.ts), toàn bộ các controller bị cấm gọi `wallet.update()`, mọi biến động tiền đều phải đi qua `LedgerService.postTransaction()` trong 1 transaction an toàn."*
 
 ---
 
@@ -28,7 +28,7 @@
 **Câu trả lời chuẩn**:  
 *"Dạ thưa Thầy/Cô, để đảm bảo tiêu chí đồ án 100% zero-config và không phụ thuộc hạ tầng ngoài, nhóm không sử dụng Redis mà sử dụng **Cơ chế Khóa hàng nguyên tử (Atomic Conditional Update) kết hợp DB Transaction**:*
 - *Nếu ta làm theo cách thông thường: `SELECT` kiểm tra slot trống rồi mới `UPDATE`, giữa 2 bước đó sẽ có khoảng trống (Race Condition window) khiến cả 2 request cùng thấy slot `AVAILABLE`.*
-- *Nhóm đã xử lý triệt để trong [`server/src/modules/booking/booking.service.ts`](file:///c:/Users/pc/Documents/INSTASQUAD/server/src/modules/booking/booking.service.ts) bằng cách gộp kiểm tra và cập nhật vào 1 câu lệnh duy nhất bên trong `prisma.$transaction`:*
+- *Nhóm đã xử lý triệt để trong [`server/src/modules/booking/booking.service.ts`](../server/src/modules/booking/booking.service.ts) bằng cách gộp kiểm tra và cập nhật vào 1 câu lệnh duy nhất bên trong `prisma.$transaction`:*
   ```typescript
   const updated = await tx.slotCalendar.updateMany({
     where: { slot_id: slotId, status: 'AVAILABLE' },
@@ -38,7 +38,7 @@
     throw new BusinessError('SLOT_ALREADY_HELD', 'Khung giờ này vừa có người giữ chỗ.');
   }
   ```
-- *Nhờ cơ chế cô lập của cơ sở dữ liệu quan hệ, request đầu tiên cập nhật thành công (`count = 1`), request thứ hai đến sau dù chỉ vài micro-giây sẽ thấy điều kiện `status = 'AVAILABLE'` không còn thỏa mãn (`count = 0`), lập tức bị từ chối với lỗi HTTP 409 Conflict. Đã được chứng minh tự động qua bài test `TC07` trong [`booking_slots.test.ts`](file:///c:/Users/pc/Documents/INSTASQUAD/tests/integration/booking_slots.test.ts)."*
+- *Nhờ cơ chế cô lập của cơ sở dữ liệu quan hệ, request đầu tiên cập nhật thành công (`count = 1`), request thứ hai đến sau dù chỉ vài micro-giây sẽ thấy điều kiện `status = 'AVAILABLE'` không còn thỏa mãn (`count = 0`), lập tức bị từ chối với lỗi HTTP 409 Conflict. Đã được chứng minh tự động qua bài test `TC07` trong [`booking_slots.test.ts`](../tests/integration/booking_slots.test.ts)."*
 
 ---
 
@@ -97,7 +97,7 @@
      throw new ForbiddenError('Bạn không có quyền truy cập vào tài nguyên này.');
    }
    ```
-*Nếu Renter 2 cố tình truy cập booking của Renter 1, hệ thống lập tức từ chối với lỗi HTTP 403 Forbidden. Nhóm đã viết riêng bộ test tự động kiểm thử thâm nhập [`tests/integration/security_audit.test.ts`](file:///c:/Users/pc/Documents/INSTASQUAD/tests/integration/security_audit.test.ts) khẳng định không có lỗ hổng IDOR."*
+*Nếu Renter 2 cố tình truy cập booking của Renter 1, hệ thống lập tức từ chối với lỗi HTTP 403 Forbidden. Nhóm đã viết riêng bộ test tự động kiểm thử thâm nhập [`tests/integration/security_audit.test.ts`](../tests/integration/security_audit.test.ts) khẳng định không có lỗ hổng IDOR."*
 
 ---
 
@@ -107,7 +107,7 @@
 *"Tại sao các em không kết nối cổng thanh toán thật như VNPay, MoMo hay Stripe mà lại tự làm Payment Simulator?"*
 
 **Câu trả lời chuẩn**:  
-*"Dạ thưa Thầy/Cô, đây là **quyết định thiết kế có chủ đích** dựa trên tiêu chí đồ án học thuật đã được PO duyệt tại Quyết định **D09** và đối chiếu với nguồn tham chiếu **`REF-TOPUP-04` / `REF-TOPUP-05`** trong [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md):*
+*"Dạ thưa Thầy/Cô, đây là **quyết định thiết kế có chủ đích** dựa trên tiêu chí đồ án học thuật đã được PO duyệt tại Quyết định **D09** và đối chiếu với nguồn tham chiếu **`REF-TOPUP-04` / `REF-TOPUP-05`** trong [`docs/REFERENCE_MAPPING.md`](REFERENCE_MAPPING.md):*
 1. * **Vướng mắc pháp lý & Phí**: Các cổng thanh toán thật tại Việt Nam (VNPay, MoMo, ZaloPay) yêu cầu Giấy phép đăng ký kinh doanh doanh nghiệp và tài khoản ngân hàng pháp nhân, sinh viên không thể đăng ký tài khoản thật.*
 2. * **Khả năng kiểm thử các kịch bản lỗi biên**: Khi dùng cổng thật Sandbox, ta rất khó giả lập các tình huống lỗi hiếm gặp như: Webhook bị trễ (Timeout), Webhook gửi lặp (Duplicate Callback), hoặc chữ ký bị giả mạo. Payment Simulator nội bộ cho phép nhóm chủ động kiểm thử trọn vẹn cả 3 trạng thái `SUCCESS`, `FAILED`, `TIMEOUT` với chữ ký HMAC SHA-256 mô phỏng chuẩn xác.*
 3. * **Tính độc lập & Zero-config**: Người chấm bài có thể chạy đồ án offline hoàn toàn mà không sợ lỗi do server của bên thứ 3 bảo trì."*
@@ -120,7 +120,7 @@
 *"Tại sao hệ thống chỉ có chat văn bản mà không làm gọi thoại WebRTC hoặc video trực tiếp giữa Renter và Companion?"*
 
 **Câu trả lời chuẩn**:  
-*"Dạ thưa Thầy/Cô, tính năng gọi thoại WebRTC đã được nhóm phân tích kỹ tại [SCOPE_BASELINE.md](file:///c:/INSTASQUAD/INSTASQUAD/docs/SCOPE_BASELINE.md) và đối chiếu với nguồn tham chiếu `REF-CHAT-01` trong `REFERENCE_MAPPING.md`, quyết định **Hoãn lại (DEFERRED)** vì 2 lý do:*
+*"Dạ thưa Thầy/Cô, tính năng gọi thoại WebRTC đã được nhóm phân tích kỹ tại [SCOPE_BASELINE.md](SCOPE_BASELINE.md) và đối chiếu với nguồn tham chiếu `REF-CHAT-01` trong `REFERENCE_MAPPING.md`, quyết định **Hoãn lại (DEFERRED)** vì 2 lý do:*
 1. * **Thực tế người dùng**: Khi chơi game, người chơi luôn sử dụng phần mềm giao tiếp chuyên dụng có sẵn (như Discord hoặc Voice chat in-game của LMHT/Valorant) vì âm thanh qua web browser thường gây giật lag và giảm FPS của game.*
 2. * **Chi phí & Hạ tầng mạng**: WebRTC để hoạt động xuyên qua các mạng NAT/Firewall trường học bắt buộc phải có máy chủ TURN/STUN trả phí. Nhóm tập trung nguồn lực vào **phòng chat văn bản WebSocket nội bộ có bộ lọc kiểm duyệt thông tin nhạy cảm** (chặn trao đổi SĐT, Zalo, STK ngân hàng theo BR-20), giải quyết bài toán chống giao dịch chui ngoài sàn."*
 
@@ -132,14 +132,14 @@
 *"Các em lấy cơ sở nào để thiết kế các luồng giao dịch, và các con số như giữ chỗ 10 phút, tự động nghiệm thu 15 phút, tỷ lệ chia 88/12, phạt hủy đơn 3 mốc... là do các em tự bịa ra hay lấy ở đâu?"*
 
 **Câu trả lời chuẩn**:  
-*"Dạ thưa Thầy/Cô, nhóm đã phân định rõ ràng giữa **Nguồn tham chiếu vận hành thực tế** và **Quy tắc nghiệp vụ của nhóm** theo quyết định ngày 05/11/2026, được chuẩn hóa tại [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md):*
+*"Dạ thưa Thầy/Cô, nhóm đã phân định rõ ràng giữa **Nguồn tham chiếu vận hành thực tế** và **Quy tắc nghiệp vụ của nhóm** theo quyết định ngày 05/11/2026, được chuẩn hóa tại [`docs/REFERENCE_MAPPING.md`](REFERENCE_MAPPING.md):*
 1. * **Về cách vận hành (luồng thao tác, màn hình, bước)**: Nhóm đối chiếu trực tiếp với **HAI nền tảng C2C Game Companion thực tế** là **Playerduo** (Việt Nam) và **Lita** (Đông Nam Á):
    - Luồng nạp tiền: Các mốc nạp nhanh, chọn phương thức, tự cập nhật số dư, lịch sử giao dịch gắn mã bút toán (`REF-TOPUP-01` đến `REF-TOPUP-08`).
    - Luồng thuê & dịch vụ: Đăng ký companion, đặt giá theo giờ, trả trước ký quỹ, companion bấm nhận/từ chối, phòng chat và rút tiền (`REF-AUTH-01` đến `REF-FUND-01`).
    - Kết quả tổng kết tách bạch ba phương diện: (a) Mức hoàn thiện triển khai (28 dòng REF): 25 dòng Đầy đủ (89.3%), 2 dòng Một phần (7.1%) (`REF-CHAT-01`, `REF-TAX-01`), 1 dòng Chưa có / Chưa đáp ứng (3.6%) (`REF-AUTH-03` – Google OAuth2), 0 dòng thiếu; (b) Độ chính xác tài liệu tham chiếu (28 dòng REF): 24 dòng KHỚP (85.7%), 3 dòng KHÁC NGUỒN (10.7%) (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`), 1 dòng CHƯA KIỂM CHỨNG ĐƯỢC (3.6%) (Ảnh Lita nút Nạp Xu `REF-TOPUP-01` chưa có tệp trên đĩa); (c) Phân loại theo Loại thiết kế (28 dòng REF): 23 dòng LẤY THEO NGUỒN (82.1%), 2 dòng NHÓM PHÁT TRIỂN THÊM (7.1%) (`REF-TOPUP-03`, `REF-TOPUP-05`), 3 dòng KHÁC NGUỒN (10.7%) (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`).
 2. * **Về quy tắc nghiệp vụ cốt lõi**: Toàn bộ là **Quy tắc của nhóm** dựa trên Project Charter, tài liệu đề bài `INSTASQUAD_BPMN_TKHT.pdf` (19 trang) và Requirements của nhóm:
    - Tỷ lệ 88/12 (Trang 1 Mục I, Trang 13 Bước 1), phản hồi 180s (Trang 1 Mục II, Trang 6 Bước 3), mốc hủy 30m/10m (Trang 1 Mục II, Trang 9), nghiệm thu 15m (Trang 11 Mục III, Trang 12 Bước 6), khiếu nại lỗi $\ge 80\%$ (Trang 11, Trang 18), trần 10 giờ/ngày (Trang 1, Trang 2 Bước 2) lấy trực tiếp từ số trang thật của sơ đồ quy trình đề bài.
-   - Các điểm mở tài liệu gốc chưa quy định (D21 chia phạt hủy < 10m theo 88/12, D22 phạt 20% nộp sàn & ghi nợ `PENALTY_DEBT`, D23 lỗi 1–79%, D24 tự động nghiệm thu 15m, D25 hạn chứng cứ 24h & tạm dừng SLA, D26 thử lại 3 lần giải ngân Escrow lỗi, D27 Funnel Conversion Rate) được nhóm ghi nhận minh bạch là **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định (D21–D27)** tại [`docs/DECISION_LOG.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/DECISION_LOG.md).
+   - Các điểm mở tài liệu gốc chưa quy định (D21 chia phạt hủy < 10m theo 88/12, D22 phạt 20% nộp sàn & ghi nợ `PENALTY_DEBT`, D23 lỗi 1–79%, D24 tự động nghiệm thu 15m, D25 hạn chứng cứ 24h & tạm dừng SLA, D26 thử lại 3 lần giải ngân Escrow lỗi, D27 Funnel Conversion Rate) được nhóm ghi nhận minh bạch là **NHÓM ĐÃ CHỐT 06/11/2026 – Charter chưa quy định (D21–D27)** tại [`docs/DECISION_LOG.md`](DECISION_LOG.md).
    - Tuyệt đối không tự ý đưa con số vào mã nguồn mà không có quyết định phê duyệt."*
 
 ---

@@ -11,19 +11,19 @@
 
 | STT | Tài liệu bàn giao | Đường dẫn tệp | Mục đích học thuật & Nội dung cốt lõi |
 |:---:|:---|:---|:---|
-| 1 | **Báo cáo QA & Kiểm toán Độc lập** | [`docs/QA_REPORT.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/QA_REPORT.md) | Báo cáo chi tiết kết quả 16 test suites, **160/160 tests PASS**, đối chiếu 70 ca kiểm thử WBS (TC01–TC70), kiểm toán thâm nhập bảo mật và đối soát Sổ cái kép. |
-| 2 | **Ma trận Truy vết 6 Chiều Khép kín** | [`docs/TRACEABILITY_FINAL.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/TRACEABILITY_FINAL.md) | Ma trận nối: PDF Đề bài $\longleftrightarrow$ Business Rule (BR-01..BR-28) $\longleftrightarrow$ WBS ID $\longleftrightarrow$ Code & API $\longleftrightarrow$ Thực thể Prisma $\longleftrightarrow$ Test ID & Bằng chứng. |
-| 3 | **Đề cương Báo cáo Tổng kết Đồ án** | [`docs/FINAL_REPORT_OUTLINE.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/FINAL_REPORT_OUTLINE.md) | Khung báo cáo 6 chương chuẩn học thuật: Bối cảnh, Yêu cầu, BPMN, Kiến trúc, ERD, Bộ ba Booking-Escrow-Ledger, Bảng phân loại tính năng (Thực/Mock/Deferred), và Hướng phát triển. |
-| 4 | **Kịch bản Demo Bảo vệ Đồ án** | [`docs/DEMO_SCRIPT.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/DEMO_SCRIPT.md) | Kịch bản trình diễn 8–12 phút chi tiết từng phút, các điểm chạm Sổ cái cần chỉ ra cho Hội đồng và kế hoạch dự phòng (Fallback Plan). |
-| 5 | **Bộ Câu hỏi & Trả lời Phản biện** | [`docs/DEFENSE_QA.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/DEFENSE_QA.md) | Bộ 10 câu hỏi cốt lõi về Sổ cái kép, Idempotency, Concurrency, Escrow, Rollback, RBAC/IDOR, Mock Simulator và hạn chế kỹ thuật. |
-| 6 | **Thiết kế Kiến trúc As-Built** | [`docs/ARCHITECTURE.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/ARCHITECTURE.md) | Kiến trúc Modular Monolith, cơ chế Atomic Slot Lock trong DB Transaction, và Sơ đồ lớp miền nghiệp vụ (Domain Class Diagram). |
-| 7 | **Mô hình Dữ liệu Thực thể (ERD)** | [`docs/DATA_MODEL.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/DATA_MODEL.md) | Sơ đồ Mermaid ERD 24 thực thể, khắc phục hoàn toàn ERD Gap ban đầu theo Quyết định D14. |
-| 8 | **Quy tắc Tài chính & Đối soát Sổ cái**| [`docs/FINANCIAL_RULES.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/FINANCIAL_RULES.md) | Quy tắc kế toán kép $\sum \text{Debit} \equiv \sum \text{Credit}$, thuật toán 88/12 zero-cent rounding và công thức tính tay TrustScore. |
-| 9 | **Sổ Quyết định PO (Decision Log)** | [`docs/DECISION_LOG.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/DECISION_LOG.md) | Biên bản phê duyệt chính thức toàn bộ 18 quyết định (D01 – D18) từ Product Owner. |
-| 10 | **Đường cơ sở Phạm vi (Scope Baseline)**| [`docs/SCOPE_BASELINE.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/SCOPE_BASELINE.md) | Phân định ranh giới 4 nhóm: REQUIRED, MOCKED, DEFERRED, và DEMO_POLICY. |
-| 11 | **Đặc tả API & Hợp đồng DTO** | [`docs/API_CONTRACT.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/API_CONTRACT.md) | Đặc tả Request/Response DTO có kiểm thực Zod cho toàn bộ các endpoints. |
-| 12 | **Theo dõi Tiến độ WBS & Milestones** | [`docs/AI_PROGRESS.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/AI_PROGRESS.md) | Nhật ký tiến độ 195 WBS items và hoàn thành 100% các Milestone M0 đến M8. |
-| 13 | **Ánh xạ Tham chiếu Vận hành (Reference Mapping)** | [`docs/REFERENCE_MAPPING.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/REFERENCE_MAPPING.md) | Bảng ánh xạ luồng nạp tiền và vận hành từ 2 nguồn thực tế Playerduo & Lita, xác lập ranh giới các Quy tắc nghiệp vụ nội bộ của nhóm. |
+| 1 | **Báo cáo QA & Kiểm toán Độc lập** | [`docs/QA_REPORT.md`](QA_REPORT.md) | Báo cáo chi tiết kết quả 16 test suites, **160/160 tests PASS**, đối chiếu 70 ca kiểm thử WBS (TC01–TC70), kiểm toán thâm nhập bảo mật và đối soát Sổ cái kép. |
+| 2 | **Ma trận Truy vết 6 Chiều Khép kín** | [`docs/TRACEABILITY_FINAL.md`](TRACEABILITY_FINAL.md) | Ma trận nối: PDF Đề bài $\longleftrightarrow$ Business Rule (BR-01..BR-28) $\longleftrightarrow$ WBS ID $\longleftrightarrow$ Code & API $\longleftrightarrow$ Thực thể Prisma $\longleftrightarrow$ Test ID & Bằng chứng. |
+| 3 | **Đề cương Báo cáo Tổng kết Đồ án** | [`docs/FINAL_REPORT_OUTLINE.md`](FINAL_REPORT_OUTLINE.md) | Khung báo cáo 6 chương chuẩn học thuật: Bối cảnh, Yêu cầu, BPMN, Kiến trúc, ERD, Bộ ba Booking-Escrow-Ledger, Bảng phân loại tính năng (Thực/Mock/Deferred), và Hướng phát triển. |
+| 4 | **Kịch bản Demo Bảo vệ Đồ án** | [`docs/DEMO_SCRIPT.md`](DEMO_SCRIPT.md) | Kịch bản trình diễn 8–12 phút chi tiết từng phút, các điểm chạm Sổ cái cần chỉ ra cho Hội đồng và kế hoạch dự phòng (Fallback Plan). |
+| 5 | **Bộ Câu hỏi & Trả lời Phản biện** | [`docs/DEFENSE_QA.md`](DEFENSE_QA.md) | Bộ 10 câu hỏi cốt lõi về Sổ cái kép, Idempotency, Concurrency, Escrow, Rollback, RBAC/IDOR, Mock Simulator và hạn chế kỹ thuật. |
+| 6 | **Thiết kế Kiến trúc As-Built** | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | Kiến trúc Modular Monolith, cơ chế Atomic Slot Lock trong DB Transaction, và Sơ đồ lớp miền nghiệp vụ (Domain Class Diagram). |
+| 7 | **Mô hình Dữ liệu Thực thể (ERD)** | [`docs/DATA_MODEL.md`](DATA_MODEL.md) | Sơ đồ Mermaid ERD 24 thực thể, khắc phục hoàn toàn ERD Gap ban đầu theo Quyết định D14. |
+| 8 | **Quy tắc Tài chính & Đối soát Sổ cái**| [`docs/FINANCIAL_RULES.md`](FINANCIAL_RULES.md) | Quy tắc kế toán kép $\sum \text{Debit} \equiv \sum \text{Credit}$, thuật toán 88/12 zero-cent rounding và công thức tính tay TrustScore. |
+| 9 | **Sổ Quyết định PO (Decision Log)** | [`docs/DECISION_LOG.md`](DECISION_LOG.md) | Biên bản phê duyệt chính thức toàn bộ 18 quyết định (D01 – D18) từ Product Owner. |
+| 10 | **Đường cơ sở Phạm vi (Scope Baseline)**| [`docs/SCOPE_BASELINE.md`](SCOPE_BASELINE.md) | Phân định ranh giới 4 nhóm: REQUIRED, MOCKED, DEFERRED, và DEMO_POLICY. |
+| 11 | **Đặc tả API & Hợp đồng DTO** | [`docs/API_CONTRACT.md`](API_CONTRACT.md) | Đặc tả Request/Response DTO có kiểm thực Zod cho toàn bộ các endpoints. |
+| 12 | **Theo dõi Tiến độ WBS & Milestones** | [`docs/AI_PROGRESS.md`](AI_PROGRESS.md) | Nhật ký tiến độ 195 WBS items và hoàn thành 100% các Milestone M0 đến M8. |
+| 13 | **Ánh xạ Tham chiếu Vận hành (Reference Mapping)** | [`docs/REFERENCE_MAPPING.md`](REFERENCE_MAPPING.md) | Bảng ánh xạ luồng nạp tiền và vận hành từ 2 nguồn thực tế Playerduo & Lita, xác lập ranh giới các Quy tắc nghiệp vụ nội bộ của nhóm. |
 
 ---
 
