@@ -31,6 +31,11 @@ export interface AutomationCycleResult {
     processed: number;
     errors: number;
   };
+  reviewReminder?: {
+    scanned: number;
+    sent: number;
+    errors: number;
+  };
 }
 
 export class BookingAutomationService {
@@ -380,6 +385,57 @@ export class BookingAutomationService {
   /**
    * Thực hiện một chu kỳ quét đầy đủ (timeout + auto-accept + settlement retry + dispute evidence)
    */
+  /**
+   * G10 — Nhắc đánh giá sau phiên: đơn COMPLETED đã giải ngân ≥ REVIEW_REMINDER_DELAY_MINUTES và trong 7 ngày gần nhất,
+   * bên nào (Renter / Companion) chưa gửi đánh giá và CHƯA từng được nhắc cho đơn này thì nhận 1 thông báo REVIEW_REMINDER.
+   */
+  async processReviewReminders(clock?: Date): Promise<{ scanned: number; sent: number; errors: number }> {
+    const now = clock || new Date();
+    const due = new Date(now.getTime() - env.REVIEW_REMINDER_DELAY_MINUTES * 60 * 1000);
+    const oldest = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    let sent = 0;
+    let errors = 0;
+
+    const bookings = await prisma.booking.findMany({
+      where: { status: 'COMPLETED', escrow: { released_at: { lte: due, gte: oldest } } },
+      select: {
+        booking_id: true,
+        renter_id: true,
+        renter: { select: { display_name: true } },
+        companion: { select: { user_id: true, user: { select: { display_name: true } } } },
+        reviews: { select: { reviewer_id: true } },
+      },
+      take: 200,
+    });
+
+    for (const b of bookings) {
+      const reviewed = new Set(b.reviews.map((r) => r.reviewer_id));
+      const parties = [
+        { userId: b.renter_id, counterpart: b.companion.user.display_name },
+        { userId: b.companion.user_id, counterpart: b.renter.display_name },
+      ];
+      for (const p of parties) {
+        if (reviewed.has(p.userId)) continue;
+        try {
+          const notif = userMessages.reviewReminder(p.counterpart, b.booking_id);
+          const already = await prisma.notification.count({
+            where: { user_id: p.userId, type: notif.type, target_url: notif.target_url },
+          });
+          if (already > 0) continue;
+          await prisma.notification.create({
+            data: { user_id: p.userId, title: notif.title, message: notif.message, type: notif.type, target_url: notif.target_url },
+          });
+          sent += 1;
+        } catch (err) {
+          errors += 1;
+          logger.error(`[BookingAutomation] Không gửi được nhắc đánh giá cho ${b.booking_id}: ${(err as Error).message}`);
+        }
+      }
+    }
+    if (sent > 0) logger.info(`[BookingAutomation] Đã gửi ${sent} nhắc đánh giá sau phiên.`);
+    return { scanned: bookings.length, sent, errors };
+  }
+
   async runAutomationCycle(clock?: Date): Promise<AutomationCycleResult> {
     const cycleNow = clock || new Date();
 
@@ -399,6 +455,7 @@ export class BookingAutomationService {
       const autoAcceptStats = await this.processExpiredAutoAccepts(cycleNow);
       const retryStats = await this.processSettlementRetries(cycleNow);
       const evidenceStats = await this.processExpiredDisputeEvidences(cycleNow);
+      const reviewStats = await this.processReviewReminders(cycleNow);
 
       if (
         timeoutStats.processed > 0 ||
@@ -421,6 +478,7 @@ export class BookingAutomationService {
         autoAccept: autoAcceptStats,
         settlementRetry: retryStats,
         disputeEvidence: evidenceStats,
+        reviewReminder: reviewStats,
       };
     } finally {
       this.isProcessing = false;

@@ -214,8 +214,13 @@ class FakeBackend {
   });
 
   /// Dựng App đầy đủ (router + AppScope) với backend giả.
-  Future<void> pumpApp(WidgetTester tester, {bool loggedIn = true, String initialLocation = '/discover'}) async {
-    SharedPreferences.setMockInitialValues(loggedIn ? {'token': 'test-token'} : {});
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    bool loggedIn = true,
+    String initialLocation = '/discover',
+    Map<String, Object> extraPrefs = const {},
+  }) async {
+    SharedPreferences.setMockInitialValues({if (loggedIn) 'token': 'test-token', ...extraPrefs});
     final api = ApiClient(httpClient: client, baseUrl: 'http://test');
     final auth = AuthState(api);
     await tester.runAsync(auth.restore);

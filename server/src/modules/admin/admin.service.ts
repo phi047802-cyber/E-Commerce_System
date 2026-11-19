@@ -1,5 +1,6 @@
 import { prisma } from '../../common/prisma.js';
 import { paymentService } from '../payment/payment.service.js';
+import { DIRECT_SOURCE, SOCIAL_SOURCES } from '../../common/utm.js';
 
 export class AdminService {
   async getDashboardMetrics() {
@@ -62,13 +63,15 @@ export class AdminService {
     // 8. Các chỉ số vận hành mở rộng (Đợt E1)
     const activeBookingsCount = await prisma.booking.count({
       where: {
-        status: { in: ['PENDING_ACCEPTANCE', 'ACCEPTED', 'IN_SESSION', 'WAITING_RENTER_CONFIRM'] },
+        // Gồm cả đơn đã ký quỹ đang chờ Companion (WAITING_COMPANION_RESPONSE) — trước đây bị bỏ sót
+        status: { in: ['PENDING_ACCEPTANCE', 'WAITING_COMPANION_RESPONSE', 'ACCEPTED', 'IN_SESSION', 'WAITING_RENTER_CONFIRM', 'DISPUTED'] },
       },
     });
 
     const openRmaCount = await prisma.disputeCase.count({
       where: {
-        status: { in: ['OPEN', 'EVIDENCE_PENDING', 'UNDER_REVIEW'] },
+        // Khiếu nại mới có trạng thái OPENED (dispute.service) — trước đây đếm 'OPEN' nên thiếu
+        status: { in: ['OPENED', 'OPEN', 'EVIDENCE_PENDING', 'UNDER_REVIEW'] },
       },
     });
 
@@ -140,6 +143,61 @@ export class AdminService {
         quota_warning_message: inflowMetrics.warning_message,
       },
       daily_chart: dailyChart,
+      channels: await this.getChannelBreakdown(),
+    };
+  }
+
+  /**
+   * G8/G9 — Phân tích theo kênh nguồn (utm_source, first-touch).
+   * - visits: phiên truy cập duy nhất (`site_visits`), không có utm_source → "direct".
+   * - signups: tài khoản Renter/Companion theo `users.signup_utm_source`.
+   * - escrow_bookings: đơn ký quỹ thành công của Renter có kênh đăng ký tương ứng.
+   * - conversion_pct = escrow_bookings / visits (D27, theo từng kênh); null khi kênh không có phiên ghi nhận.
+   * Ghi chú: người dùng đăng ký trước khi có ghi nhận kênh (G9) được tính vào "direct".
+   */
+  async getChannelBreakdown() {
+    const [visitGroups, signupGroups, escrowRows] = await Promise.all([
+      prisma.siteVisit.groupBy({ by: ['utm_source'], _count: { _all: true } }),
+      prisma.user.groupBy({
+        by: ['signup_utm_source'],
+        where: { role: { in: ['RENTER', 'COMPANION'] } },
+        _count: { _all: true },
+      }),
+      prisma.escrow.findMany({ select: { booking: { select: { renter: { select: { signup_utm_source: true } } } } } }),
+    ]);
+
+    const key = (v: string | null | undefined) => (v && v.trim() ? v : DIRECT_SOURCE);
+    const rows = new Map<string, { source: string; visits: number; signups: number; escrow_bookings: number }>();
+    const row = (source: string) => {
+      if (!rows.has(source)) rows.set(source, { source, visits: 0, signups: 0, escrow_bookings: 0 });
+      return rows.get(source)!;
+    };
+    for (const g of visitGroups) row(key(g.utm_source)).visits += g._count._all;
+    for (const g of signupGroups) row(key(g.signup_utm_source)).signups += g._count._all;
+    for (const e of escrowRows) row(key(e.booking.renter.signup_utm_source)).escrow_bookings += 1;
+
+    const totalVisits = [...rows.values()].reduce((sum, r) => sum + r.visits, 0);
+    const socialVisits = [...rows.values()]
+      .filter((r) => (SOCIAL_SOURCES as readonly string[]).includes(r.source))
+      .reduce((sum, r) => sum + r.visits, 0);
+    const pct = (num: number, den: number) => (den > 0 ? Number(((num / den) * 100).toFixed(2)) : null);
+
+    const breakdown = [...rows.values()]
+      .map((r) => ({
+        ...r,
+        is_social: (SOCIAL_SOURCES as readonly string[]).includes(r.source),
+        visit_share_pct: pct(r.visits, totalVisits),
+        conversion_pct: pct(r.escrow_bookings, r.visits),
+      }))
+      .sort((a, b) => b.visits - a.visits || b.escrow_bookings - a.escrow_bookings || a.source.localeCompare(b.source));
+
+    return {
+      breakdown,
+      total_visits: totalVisits,
+      social_visits: socialVisits,
+      social_visit_share_pct: pct(socialVisits, totalVisits),
+      social_visit_share_target_pct: 40,
+      attribution: 'first-touch: kênh của lượt truy cập/deep link đầu tiên, lưu lúc đăng ký',
     };
   }
 

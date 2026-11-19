@@ -19,6 +19,8 @@ export default defineConfig({
     poolOptions: { forks: { isolate: true, singleFork: false, minForks: 1, maxForks: 1 } },
     testTimeout: 30000,
     hookTimeout: 60000,
+    // D44: cho tiến trình con đủ thời gian đóng PrismaClient / kết nối SQL Server trước khi bị thu hồi
+    teardownTimeout: 30000,
     exclude: ['**/node_modules/**', 'mobile/**', 'client/**'],
   },
 });

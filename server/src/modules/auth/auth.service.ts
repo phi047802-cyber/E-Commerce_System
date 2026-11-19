@@ -6,6 +6,7 @@ import { ConflictError, UnauthorizedError, NotFoundError, BusinessError, Forbidd
 import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput, SendVerifyOtpInput, VerifyEmailInput } from './auth.dto.js';
 import { emailService } from './email.service.js';
 import { CURRENT_TERMS_VERSION } from '../legal/legal.catalog.js';
+import { extractUtm } from '../../common/utm.js';
 
 export class AuthService {
   async register(input: RegisterInput) {
@@ -40,6 +41,9 @@ export class AuthService {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(input.password, salt);
 
+    // Kênh nguồn first-touch (G9): làm sạch giống site_visits; bỏ qua nếu không hợp lệ
+    const signupUtm = extractUtm(input as unknown as Record<string, unknown>);
+
     // Tạo User kèm Wallet ban đầu trong một transaction
     const user = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -50,6 +54,9 @@ export class AuthService {
           role: input.role,
           phone_number: input.phone_number,
           is_email_verified: false,
+          signup_utm_source: signupUtm.utm_source ?? null,
+          signup_utm_medium: signupUtm.utm_medium ?? null,
+          signup_utm_campaign: signupUtm.utm_campaign ?? null,
         },
       });
 

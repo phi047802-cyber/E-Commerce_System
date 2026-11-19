@@ -118,6 +118,8 @@ class _InstaSquadAppState extends State<InstaSquadApp> {
     if (widget.enableDeepLinks) {
       // Nhận cả link mở App lúc khởi động lẫn khi App đang chạy (Android App Links / iOS Universal Links / instasquad://)
       _linkSub = AppLinks().uriLinkStream.listen((uri) {
+        // G9: giữ kênh nguồn của link đầu tiên mở App để gửi kèm khi đăng ký
+        widget.auth.rememberFirstTouchUtm(utmFromUri(uri));
         final location = deepLinkToLocation(uri);
         if (location != null) _router.go(location);
       });

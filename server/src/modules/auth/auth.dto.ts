@@ -12,6 +12,10 @@ export const registerSchema = z.object({
   // nếu bỏ qua, người dùng sẽ được yêu cầu chấp thuận trước giao dịch đầu tiên.
   accept_terms_version: z.string().max(32).optional(),
   channel: z.enum(['WEB', 'MOBILE']).optional(),
+  // Kênh nguồn first-touch (G9). Server làm sạch lại bằng extractUtm; giá trị không hợp lệ bị bỏ qua.
+  utm_source: z.string().max(200).optional(),
+  utm_medium: z.string().max(200).optional(),
+  utm_campaign: z.string().max(200).optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

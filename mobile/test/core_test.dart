@@ -33,6 +33,15 @@ void main() {
     });
   });
 
+  test('utmFromUri: lấy utm_* của link mở App (G9)', () {
+    expect(
+      utmFromUri(Uri.parse('https://instasquad.vn/go/companion/prof-comp-03?utm_source=tiktok&utm_campaign=xem-phim&c=x')),
+      {'utm_source': 'tiktok', 'utm_campaign': 'xem-phim'},
+    );
+    expect(utmFromUri(Uri.parse('instasquad://wallet')), isEmpty);
+    expect(utmFromUri(Uri.parse('instasquad://discover?utm_source=%20%20')), isEmpty);
+  });
+
   test('formatVnd giống Web', () {
     expect(formatVnd(176000), '176.000 đ');
     expect(formatVnd(0), '0 đ');

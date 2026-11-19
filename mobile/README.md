@@ -50,6 +50,10 @@ Gợi ý: đặt `PUB_CACHE=D:\pub-cache` để cache package nằm trên ổ D.
 - Deep link mặc định của Flutter bị tắt; `app_links` + `go_router` xử lý (`lib/core/deep_links.dart`). Link cần đăng nhập
   được giữ trong `?next=` và mở lại sau khi đăng nhập.
 
+## Kênh nguồn (G9)
+
+Link đầu tiên mở App (deep link / App Link có `utm_source`, `utm_medium`, `utm_campaign`) được lưu cục bộ làm kênh first-touch và gửi kèm khi đăng ký; Admin xem conversion theo kênh trên Web (D47).
+
 ## Đăng ký & xác minh email
 
 Đăng ký → App chuyển sang xác minh email. Chưa xác minh vẫn duyệt được, nhưng đặt lịch / nạp tiền bị server chặn `EMAIL_NOT_VERIFIED` → App hiện hộp thoại dẫn tới màn xác minh. Server giới hạn gửi lại 60 giây, mã hết hạn 10 phút, tối đa 5 lần sai.

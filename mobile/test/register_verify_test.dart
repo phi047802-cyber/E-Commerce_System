@@ -154,6 +154,22 @@ void main() {
     expect((fb.posted['/api/auth/register'] as Map)['role'], 'COMPANION');
   });
 
+  testWidgets('G9: đăng ký gửi kèm kênh nguồn first-touch đã lưu từ deep link', (tester) async {
+    usePhoneSize(tester);
+    final fb = FakeBackend();
+    await fb.pumpApp(tester, loggedIn: false, initialLocation: '/register', extraPrefs: {
+      'first_touch_utm': '{"utm_source":"tiktok","utm_campaign":"xem-phim-cung"}',
+    });
+    await fillRegisterForm(tester);
+    await tapVisible(tester, find.byKey(const Key('register-over18')));
+    await tapVisible(tester, find.byKey(const Key('register-terms')));
+    await tapVisible(tester, find.byKey(const Key('register-submit')));
+    final body = fb.posted['/api/auth/register'] as Map;
+    expect(body['utm_source'], 'tiktok');
+    expect(body['utm_campaign'], 'xem-phim-cung');
+    expect(body.containsKey('utm_medium'), isFalse);
+  });
+
   test('safeNext chỉ nhận đích đến nội bộ', () {
     expect(safeNext('/companion/prof-comp-03'), '/companion/prof-comp-03');
     expect(safeNext('/discover?c=social'), '/discover?c=social');

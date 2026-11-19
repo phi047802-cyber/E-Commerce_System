@@ -1,3 +1,13 @@
+/// Tham số UTM của link đã mở App (G9 — kênh nguồn first-touch). Server làm sạch lại khi nhận.
+Map<String, String> utmFromUri(Uri uri) {
+  final out = <String, String>{};
+  for (final k in const ['utm_source', 'utm_medium', 'utm_campaign']) {
+    final v = uri.queryParameters[k]?.trim();
+    if (v != null && v.isNotEmpty) out[k] = v.length > 200 ? v.substring(0, 200) : v;
+  }
+  return out;
+}
+
 /// Chuyển link Social/Web sang route nội bộ của App (NON_GAMER_GROWTH_STRATEGY.md §4).
 ///
 /// Hỗ trợ:

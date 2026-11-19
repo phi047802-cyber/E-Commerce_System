@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -77,6 +79,7 @@ class AuthState extends ChangeNotifier {
       'is_over_18': true,
       'accept_terms_version': AppConfig.termsVersion,
       'channel': 'MOBILE',
+      ...await firstTouchUtm(),
     }) as Map<String, dynamic>;
     await _adopt(data);
   }
@@ -108,6 +111,27 @@ class AuthState extends ChangeNotifier {
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.remove('token');
     notifyListeners();
+  }
+
+  static const _utmKey = 'first_touch_utm';
+
+  /// G9: lưu UTM của link ĐẦU TIÊN mở App (first-touch); các link sau không ghi đè.
+  Future<void> rememberFirstTouchUtm(Map<String, String> utm) async {
+    if (utm.isEmpty) return;
+    _prefs ??= await SharedPreferences.getInstance();
+    if (_prefs!.getString(_utmKey) != null) return;
+    await _prefs!.setString(_utmKey, jsonEncode(utm));
+  }
+
+  Future<Map<String, String>> firstTouchUtm() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    final raw = _prefs!.getString(_utmKey);
+    if (raw == null) return const {};
+    try {
+      return (jsonDecode(raw) as Map<String, dynamic>).map((k, v) => MapEntry(k, v.toString()));
+    } on FormatException {
+      return const {};
+    }
   }
 
   Future<AppUser> _fetchMe() async => AppUser.fromJson(await api.get('/api/auth/me') as Map<String, dynamic>);
