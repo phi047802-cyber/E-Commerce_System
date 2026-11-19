@@ -63,8 +63,8 @@ flowchart TD
 ## 3. Đối chiếu triển khai mã nguồn thực tế
 
 Quy trình trên được triển khai tại:
-- **Tạo yêu cầu và phong tỏa:** [`WithdrawalService.requestWithdrawal`](file:///C:/INSTASQUAD/INSTASQUAD/server/src/modules/withdrawal/withdrawal.service.ts#L15-L129)
-- **Chuyển trạng thái xử lý:** [`WithdrawalService.processWithdrawal`](file:///C:/INSTASQUAD/INSTASQUAD/server/src/modules/withdrawal/withdrawal.service.ts#L135-L182)
-- **Phê duyệt hoàn tất (sinh mã PO):** [`WithdrawalService.completeWithdrawal`](file:///C:/INSTASQUAD/INSTASQUAD/server/src/modules/withdrawal/withdrawal.service.ts#L188-L256)
-- **Từ chối và bút toán hoàn trả:** [`WithdrawalService.rejectWithdrawal`](file:///C:/INSTASQUAD/INSTASQUAD/server/src/modules/withdrawal/withdrawal.service.ts#L262-L343)
-- **Bảo toàn Sổ cái kép:** [`LedgerService.postTransaction`](file:///C:/INSTASQUAD/INSTASQUAD/server/src/modules/ledger/ledger.service.ts)
+- **Tạo yêu cầu và phong tỏa:** [`WithdrawalService.requestWithdrawal`](../server/src/modules/withdrawal/withdrawal.service.ts#L15-L129)
+- **Chuyển trạng thái xử lý:** [`WithdrawalService.processWithdrawal`](../server/src/modules/withdrawal/withdrawal.service.ts#L135-L182)
+- **Phê duyệt hoàn tất (sinh mã PO):** [`WithdrawalService.completeWithdrawal`](../server/src/modules/withdrawal/withdrawal.service.ts#L188-L256)
+- **Từ chối và bút toán hoàn trả:** [`WithdrawalService.rejectWithdrawal`](../server/src/modules/withdrawal/withdrawal.service.ts#L262-L343)
+- **Bảo toàn Sổ cái kép:** [`LedgerService.postTransaction`](../server/src/modules/ledger/ledger.service.ts)

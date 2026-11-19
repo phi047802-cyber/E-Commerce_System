@@ -27,7 +27,7 @@
 
 ### [2026-11-05] Thống nhất Nguồn tham chiếu vận hành (Playerduo & Lita) và Ghi nhận các điểm Khác nguồn
 
-Theo Quyết định ngày 05/11/2026, nhóm chỉ sử dụng **02 nguồn tham chiếu vận hành** là **Playerduo** và **Lita** (lập thành bảng ánh xạ tại [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md)). Nhóm chính thức ghi nhận 05 điểm "Khác nguồn" có chủ ý như sau:
+Theo Quyết định ngày 05/11/2026, nhóm chỉ sử dụng **02 nguồn tham chiếu vận hành** là **Playerduo** và **Lita** (lập thành bảng ánh xạ tại [`docs/REFERENCE_MAPPING.md`](REFERENCE_MAPPING.md)). Nhóm chính thức ghi nhận 05 điểm "Khác nguồn" có chủ ý như sau:
 
 1. **Chủ thể xác nhận hoàn tất đơn (`REF-DONE-01`)**:
    - *Lita*: Seller bấm "Order Complete", người mua có 48 giờ phản đối.
