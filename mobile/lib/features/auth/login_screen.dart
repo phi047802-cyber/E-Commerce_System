@@ -96,6 +96,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text('Đăng nhập'),
                   ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    key: const Key('login-register'),
+                    onPressed: () {
+                      // Giữ đích đến của deep link qua bước đăng ký → xác minh email
+                      final next = GoRouterState.of(context).uri.queryParameters['next'];
+                      context.go(next == null ? '/register' : '/register?next=${Uri.encodeComponent(next)}');
+                    },
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    child: const Text('Tạo tài khoản mới'),
+                  ),
                   const SizedBox(height: 16),
                   Wrap(alignment: WrapAlignment.center, children: [
                     TextButton(onPressed: () => context.push('/workflow'), child: const Text('Quy trình 8 bước')),

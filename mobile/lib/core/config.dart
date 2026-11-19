@@ -10,6 +10,10 @@ class AppConfig {
   /// Phiên bản điều khoản App gửi kèm khi chấp thuận (server kiểm tra lại, D39).
   static const String termsVersion = 'TOS-2026.11';
 
+  /// Môi trường demo/dev: server không gửi email thật, mã OTP được ghi vào log máy chủ (`[EMAIL-SERVICE]`).
+  /// Build phát hành: `--dart-define=DEMO_EMAIL=false` để ẩn ghi chú này.
+  static const bool demoEmail = bool.fromEnvironment('DEMO_EMAIL', defaultValue: true);
+
   /// Scheme deep link tùy biến (khớp `/go/*` landing page phía server).
   static const String deepLinkScheme = 'instasquad';
 }

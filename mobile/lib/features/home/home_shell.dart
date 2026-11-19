@@ -34,6 +34,8 @@ class HomeShell extends StatelessWidget {
                   context.push('/workflow');
                 case 'terms':
                   context.push('/terms');
+                case 'verify':
+                  context.push('/verify-email');
                 case 'logout':
                   await auth.logout();
               }
@@ -44,6 +46,7 @@ class HomeShell extends StatelessWidget {
                   enabled: false,
                   child: Text('${user.displayName} · ${user.isCompanion ? 'Companion' : 'Renter'}'),
                 ),
+              if (user?.needsEmailVerification ?? false) const PopupMenuItem(value: 'verify', child: Text('Xác minh email')),
               const PopupMenuItem(value: 'workflow', child: Text('Quy trình 8 bước')),
               const PopupMenuItem(value: 'terms', child: Text('Điều khoản & vi phạm')),
               const PopupMenuItem(value: 'logout', child: Text('Đăng xuất')),
@@ -51,7 +54,26 @@ class HomeShell extends StatelessWidget {
           ),
         ],
       ),
-      body: child,
+      body: Column(children: [
+        if (user?.needsEmailVerification ?? false)
+          Material(
+            key: const Key('verify-banner'),
+            color: const Color(0xFF3B2A06),
+            child: InkWell(
+              onTap: () => context.push('/verify-email'),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(children: [
+                  Icon(Icons.mark_email_unread_outlined, color: Color(0xFFF59E0B), size: 20),
+                  SizedBox(width: 10),
+                  Expanded(child: Text('Xác minh email để đặt lịch và nạp tiền.')),
+                  Text('Xác minh', style: TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
+        Expanded(child: child),
+      ]),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => context.go(_tabs[i]),

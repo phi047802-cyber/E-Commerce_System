@@ -9,6 +9,8 @@ import 'core/auth_state.dart';
 import 'core/deep_links.dart';
 import 'core/scope.dart';
 import 'features/auth/login_screen.dart';
+import 'features/auth/register_screen.dart';
+import 'features/auth/verify_email_screen.dart';
 import 'features/booking/booking_detail_screen.dart';
 import 'features/booking/bookings_screen.dart';
 import 'features/discover/companion_detail_screen.dart';
@@ -32,8 +34,14 @@ ThemeData buildTheme() {
   );
 }
 
+/// Chỉ chấp nhận đích đến nội bộ của App (`/…`), không nhận URL tuyệt đối hay `//host`.
+String? safeNext(String? next) {
+  if (next == null || !next.startsWith('/') || next.startsWith('//')) return null;
+  return next;
+}
+
 GoRouter buildRouter(AuthState auth, {String initialLocation = '/discover'}) {
-  const publicPaths = {'/login', '/workflow', '/terms'};
+  const publicPaths = {'/login', '/register', '/workflow', '/terms'};
   return GoRouter(
     initialLocation: initialLocation,
     refreshListenable: auth,
@@ -44,12 +52,22 @@ GoRouter buildRouter(AuthState auth, {String initialLocation = '/discover'}) {
         // Giữ đích đến (vd. từ deep link) để quay lại sau khi đăng nhập
         return '/login?next=${Uri.encodeComponent(state.uri.toString())}';
       }
-      if (auth.isLoggedIn && loc == '/login') return state.uri.queryParameters['next'] ?? '/discover';
+      final next = safeNext(state.uri.queryParameters['next']);
+      if (auth.isLoggedIn && loc == '/login') return next ?? '/discover';
+      // Vừa đăng ký xong → xác minh email (UC01)
+      if (auth.isLoggedIn && loc == '/register') {
+        return next == null ? '/verify-email' : '/verify-email?next=${Uri.encodeComponent(next)}';
+      }
       return null;
     },
     routes: [
       GoRoute(path: '/', redirect: (_, __) => '/discover'),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(
+        path: '/verify-email',
+        builder: (_, s) => VerifyEmailScreen(next: safeNext(s.uri.queryParameters['next'])),
+      ),
       GoRoute(path: '/workflow', builder: (_, __) => const WorkflowScreen()),
       GoRoute(path: '/terms', builder: (_, __) => const TermsScreen()),
       ShellRoute(
