@@ -24,6 +24,8 @@ Toàn bộ dùng chung luồng 8 bước ([`UNIFIED_WORKFLOW.md`](UNIFIED_WORKFL
 
 ## 3. Chiến lược nội dung Social Media
 
+> Lịch triển khai chi tiết 4 tuần (74 bài, mỗi bài một link `/go/...` với `utm_campaign` riêng): [`CONTENT_CALENDAR_4W.md`](CONTENT_CALENDAR_4W.md).
+
 | Kênh | Định dạng | Trụ cột nội dung (content pillars) | Tần suất | CTA / Deep Link |
 |---|---|---|---|---|
 | **TikTok** | Video dọc 15–45s | (1) "Một buổi tối với Companion" – POV xem phim cùng; (2) Mẹo leo rank 30 giây; (3) Hậu trường: tiền được giữ an toàn thế nào (giải thích Escrow bằng hoạt hình) | 1 video/ngày | Link bio → `https://<domain>/go/discover?c=social&utm_source=tiktok` |

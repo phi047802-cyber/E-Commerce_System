@@ -1,6 +1,7 @@
 import { prisma } from '../../common/prisma.js';
 import { paymentService } from '../payment/payment.service.js';
 import { DIRECT_SOURCE, SOCIAL_SOURCES } from '../../common/utm.js';
+import { getRetentionReport } from './retention.js';
 
 export class AdminService {
   async getDashboardMetrics() {
@@ -144,6 +145,7 @@ export class AdminService {
       },
       daily_chart: dailyChart,
       channels: await this.getChannelBreakdown(),
+      retention: await getRetentionReport(),
     };
   }
 

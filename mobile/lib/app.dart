@@ -11,6 +11,7 @@ import 'core/scope.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/auth/verify_email_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/booking/booking_detail_screen.dart';
 import 'features/booking/bookings_screen.dart';
 import 'features/discover/companion_detail_screen.dart';
@@ -58,12 +59,19 @@ GoRouter buildRouter(AuthState auth, {String initialLocation = '/discover'}) {
       if (auth.isLoggedIn && loc == '/register') {
         return next == null ? '/verify-email' : '/verify-email?next=${Uri.encodeComponent(next)}';
       }
+      // G7: Renter mới trả lời 3 câu hỏi trước khi vào App (sau bước xác minh email); giữ đích đến của deep link.
+      const onboardingExempt = {'/onboarding', '/verify-email', '/terms', '/workflow'};
+      if (auth.needsOnboarding && !onboardingExempt.contains(loc)) {
+        final target = state.uri.toString();
+        return target == '/discover' || target == '/' ? '/onboarding' : '/onboarding?next=${Uri.encodeComponent(target)}';
+      }
       return null;
     },
     routes: [
       GoRoute(path: '/', redirect: (_, __) => '/discover'),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/onboarding', builder: (_, s) => OnboardingScreen(next: safeNext(s.uri.queryParameters['next']))),
       GoRoute(
         path: '/verify-email',
         builder: (_, s) => VerifyEmailScreen(next: safeNext(s.uri.queryParameters['next'])),

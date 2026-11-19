@@ -5,6 +5,7 @@ import { prisma } from '../../server/src/common/prisma.js';
 import { bookingAutomationService } from '../../server/src/modules/booking/booking-automation.service.js';
 import { vnWeekStart } from '../../server/src/modules/dispute/dispute-sla.report.js';
 import { reconciliationService } from '../../server/src/modules/ledger/reconciliation.service.js';
+import { computeRetention } from '../../server/src/modules/admin/retention.js';
 
 /**
  * G9 — conversion theo kênh nguồn (first-touch lúc đăng ký) và G10 — SLA khiếu nại theo tuần + nhắc đánh giá sau phiên.
@@ -121,6 +122,19 @@ describe('G9 / G10 — kênh nguồn, SLA khiếu nại theo tuần, nhắc đá
     const social = await prisma.siteVisit.count({ where: { utm_source: { in: ['tiktok', 'facebook', 'instagram', 'threads'] } } });
     expect(ch.social_visits).toBe(social);
     expect(ch.social_visit_share_target_pct).toBe(40);
+  });
+
+  it('G10-07: dashboard Admin trả tỷ lệ Renter quay lại 30 ngày khớp với tính trực tiếp từ DB', async () => {
+    const res = await request(app).get('/api/admin/dashboard/metrics').set('Authorization', `Bearer ${admin}`);
+    expect(res.status).toBe(200);
+    const rows = await prisma.escrow.findMany({ select: { held_at: true, booking: { select: { renter_id: true } } } });
+    const expected = computeRetention(rows.map((r) => ({ renter_id: r.booking.renter_id, held_at: r.held_at })));
+    const got = res.body.data.retention;
+    expect(got.window_days).toBe(30);
+    expect(got.renters_with_escrow).toBe(expected.renters_with_escrow);
+    expect(got.eligible_renters).toBe(expected.eligible_renters);
+    expect(got.returned_within_window).toBe(expected.returned_within_window);
+    expect(got.retention_rate_pct).toBe(expected.retention_rate_pct);
   });
 
   it('G9-04: open_rma_count đếm cả khiếu nại OPENED (trước đây chỉ đếm OPEN)', async () => {

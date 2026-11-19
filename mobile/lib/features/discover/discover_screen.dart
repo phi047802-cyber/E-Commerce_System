@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/format.dart';
 import '../../core/models.dart';
+import '../../core/onboarding.dart';
 import '../../core/scope.dart';
 import '../../widgets/common.dart';
 
@@ -67,6 +68,32 @@ class _CompanionList extends StatefulWidget {
 class _CompanionListState extends State<_CompanionList> with AutomaticKeepAliveClientMixin {
   Future<_DiscoverData>? _future;
 
+  /// Người dùng bấm "Bỏ lọc" → xem tất cả trong phiên này (không xóa câu trả lời onboarding).
+  bool _filtersOff = false;
+
+  /// Bộ lọc từ onboarding (G7) — chỉ áp cho đúng tab của hoạt động đã chọn.
+  OnboardingPrefs? _activeFilter(BuildContext context) {
+    final prefs = AppScope.of(context).auth.onboarding;
+    if (_filtersOff || prefs == null || prefs.activity.category != widget.category) return null;
+    return prefs;
+  }
+
+  List<Companion> _apply(List<Companion> all, OnboardingPrefs? f) {
+    if (f == null) return all;
+    return all.where((c) {
+      if (f.activity.serviceId != null && c.service?.id != f.activity.serviceId) return false;
+      if (f.onlineNow && !c.online) return false;
+      if (f.maxRate != null && c.hourlyRate > f.maxRate!) return false;
+      return true;
+    }).toList();
+  }
+
+  String _describe(OnboardingPrefs f) => [
+        f.activity.label,
+        if (f.onlineNow) 'đang trực tuyến',
+        if (f.maxRate != null) '≤ ${formatVnd(f.maxRate!)}/giờ',
+      ].join(' · ');
+
   @override
   bool get wantKeepAlive => true;
 
@@ -98,11 +125,35 @@ class _CompanionListState extends State<_CompanionList> with AutomaticKeepAliveC
     return AsyncView<_DiscoverData>(
       future: _future!,
       onRetry: _refresh,
-      builder: (context, data) => RefreshIndicator(
+      builder: (context, data) {
+        final filter = _activeFilter(context);
+        final companions = _apply(data.companions, filter);
+        return RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (filter != null) ...[
+              Container(
+                key: const Key('onboarding-filter-bar'),
+                padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.tune, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Gợi ý theo bạn: ${_describe(filter)}', style: const TextStyle(fontSize: 13))),
+                  TextButton(
+                    key: const Key('onboarding-filter-clear'),
+                    onPressed: () => setState(() => _filtersOff = true),
+                    child: const Text('Bỏ lọc'),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (data.services.isNotEmpty) ...[
               SizedBox(
                 height: 36,
@@ -110,21 +161,32 @@ class _CompanionListState extends State<_CompanionList> with AutomaticKeepAliveC
                   scrollDirection: Axis.horizontal,
                   itemCount: data.services.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) => Chip(label: Text(data.services[i].name), visualDensity: VisualDensity.compact),
+                  itemBuilder: (_, i) => Chip(
+                    label: Text(data.services[i].name),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: filter?.activity.serviceId == data.services[i].id
+                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)
+                        : null,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            if (data.companions.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Text('Chưa có Companion phù hợp. Kéo xuống để tải lại.',
-                    textAlign: TextAlign.center, style: TextStyle(color: kMuted)),
+            if (companions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Text(
+                    filter != null
+                        ? 'Chưa có Companion khớp lựa chọn của bạn. Bấm "Bỏ lọc" để xem tất cả.'
+                        : 'Chưa có Companion phù hợp. Kéo xuống để tải lại.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: kMuted)),
               ),
-            for (final c in data.companions) ...[CompanionCard(companion: c), const SizedBox(height: 12)],
+            for (final c in companions) ...[CompanionCard(companion: c), const SizedBox(height: 12)],
           ],
         ),
-      ),
+      );
+      },
     );
   }
 }
