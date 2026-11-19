@@ -20,7 +20,8 @@ import {
   Eye, 
   Menu,
   FileText,
-  User
+  User,
+  MailWarning,
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { BookingCountdown } from './BookingCountdown';
@@ -34,6 +35,8 @@ interface AuthenticatedAppFrameProps {
   setActiveTab: (tab: any) => void;
   onLogout: () => void;
   onTopupClick: () => void;
+  /** Mở màn xác minh email (UC01) — hiện khi tài khoản chưa xác minh. */
+  onVerifyEmailClick?: () => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   myBookings: any[];
@@ -57,6 +60,7 @@ export const AuthenticatedAppFrame: React.FC<AuthenticatedAppFrameProps> = ({
   setActiveTab,
   onLogout,
   onTopupClick,
+  onVerifyEmailClick,
   searchQuery,
   setSearchQuery,
   myBookings,
@@ -83,6 +87,8 @@ export const AuthenticatedAppFrame: React.FC<AuthenticatedAppFrameProps> = ({
   const notifRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Chỉ coi là chưa xác minh khi server trả rõ false (tài khoản cũ / Google OAuth có thể không có trường này)
+  const needsEmailVerification = currentUser?.is_email_verified === false;
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null | undefined>(currentUser?.avatar_url);
   const [avatarVersion, setAvatarVersion] = useState<number>(Date.now());
 
@@ -193,9 +199,11 @@ export const AuthenticatedAppFrame: React.FC<AuthenticatedAppFrameProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] p-2 sm:p-4 md:p-6 text-white flex flex-col items-center">
+    <div className="w-full min-w-0 min-h-screen bg-[#0A0A0A] p-2 sm:p-4 md:p-6 text-white flex flex-col items-center">
+      {/* w-full + min-w-0: khung nằm trong cột flex `items-center` của App nên không tự giãn theo màn hình — thiếu 2 lớp này
+          khung phình tới 1440px trên laptop, đẩy thanh bên và nút header (nạp tiền, tài khoản) ra ngoài màn hình. */}
       {/* Outer Container / App Frame (rounded-3xl, 24px radius, border #2A2A2A, #141414) */}
-      <div className="w-full max-w-[1440px] bg-[#141414] border border-[#2A2A2A] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row min-h-[92vh]">
+      <div className="w-full min-w-0 max-w-[1440px] bg-[#141414] border border-[#2A2A2A] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row min-h-[92vh]">
         
         {/* ================= 1. LEFT SIDEBAR (~240px) ================= */}
         <aside
@@ -467,14 +475,14 @@ export const AuthenticatedAppFrame: React.FC<AuthenticatedAppFrameProps> = ({
                   }}
                   className="relative p-2 rounded-full bg-[#1C1C1C] hover:bg-[#2A2A2A] text-[#A3A3A3] hover:text-white border border-[#2A2A2A] transition cursor-pointer"
                   title="Thông báo in-app"
+                  aria-label={unreadCount > 0 ? `Thông báo (${unreadCount} chưa đọc)` : 'Thông báo'}
                 >
                   <Bell className="w-4 h-4" />
-                  {unreadCount > 0 ? (
+                  {/* Chỉ hiện huy hiệu khi thật sự có thông báo chưa đọc (trước đây luôn có chấm đỏ mờ gây hiểu nhầm) */}
+                  {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-[#E11D2E] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full ring-2 ring-[#141414] min-w-[18px] text-center">
                       {unreadCount}
                     </span>
-                  ) : (
-                    <span className="absolute top-1 right-1 w-2 h-2 bg-[#E11D2E]/40 rounded-full ring-2 ring-[#141414]" />
                   )}
                 </button>
 
@@ -614,6 +622,18 @@ export const AuthenticatedAppFrame: React.FC<AuthenticatedAppFrameProps> = ({
                         <User className="w-3.5 h-3.5 text-sky-400" />
                         <span>Hồ sơ của tôi</span>
                       </button>
+                      {needsEmailVerification && onVerifyEmailClick && (
+                        <button
+                          onClick={() => {
+                            setUserDropdownOpen(false);
+                            onVerifyEmailClick();
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-amber-300 hover:bg-amber-500/10 transition text-left cursor-pointer"
+                        >
+                          <MailWarning className="w-3.5 h-3.5" />
+                          <span>Xác minh email</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setUserDropdownOpen(false);
@@ -633,6 +653,22 @@ export const AuthenticatedAppFrame: React.FC<AuthenticatedAppFrameProps> = ({
 
           {/* Main Body */}
           <main className="p-4 md:p-6 space-y-6 overflow-y-auto max-h-[calc(92vh-64px)]">
+            {/* UC01: nhắc xác minh email — nạp tiền / đặt lịch bị chặn cho tới khi xác minh */}
+            {needsEmailVerification && onVerifyEmailClick && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10" role="status">
+                <MailWarning className="w-5 h-5 text-amber-400 shrink-0" />
+                <p className="text-sm text-amber-100 flex-1">
+                  Email <span className="font-semibold break-all">{currentUser?.email}</span> chưa được xác minh. Xác minh để nạp tiền vào ví và đặt lịch.
+                </p>
+                <button
+                  type="button"
+                  onClick={onVerifyEmailClick}
+                  className="shrink-0 px-4 py-2 rounded-xl bg-amber-400 text-black text-xs font-bold hover:bg-amber-300 transition cursor-pointer"
+                >
+                  Xác minh ngay
+                </button>
+              </div>
+            )}
             {/* If in catalog view, show the 2-column top section + My Bookings lower section */}
             {activeTab === 'catalog' && (
               <>

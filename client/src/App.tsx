@@ -59,6 +59,7 @@ import { ProfileView } from './components/ProfileView';
 import { Avatar } from './components/common/Avatar';
 import { getDisputeReasonLabel, formatShortId } from './common/messages.vi';
 import { TermsAcceptanceModal } from './components/legal/TermsAcceptanceModal';
+import { EmailVerificationModal } from './components/auth/EmailVerificationModal';
 import { ViolationPanel } from './components/legal/ViolationPanel';
 import { DisputeSlaReport } from './components/admin/DisputeSlaReport';
 import { ChannelConversionPanel } from './components/admin/ChannelConversionPanel';
@@ -140,6 +141,7 @@ interface AuthUserState {
   display_name: string;
   role: string;
   avatar_url?: string | null;
+  is_email_verified?: boolean;
   wallet?: {
     available_balance: number;
     escrow_balance: number;
@@ -162,6 +164,9 @@ export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   // Chấp thuận điều khoản trước giao dịch (D39): lưu slot đang chờ để tự đặt lại sau khi chấp thuận
   const [termsModalSlotId, setTermsModalSlotId] = useState<string | null>(null);
+  // UC01: xác minh email trên Web. `verifyEmailSlotId` = khung giờ đang đặt dở để tự đặt tiếp sau khi xác minh.
+  const [showVerifyEmail, setShowVerifyEmail] = useState(false);
+  const [verifyEmailSlotId, setVerifyEmailSlotId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'catalog' | 'companion_dashboard' | 'cs_view' | 'auditor_view' | 'admin_dashboard' | 'admin_bookings' | 'profile'>('catalog');
@@ -1277,6 +1282,9 @@ export default function App() {
         await syncAppState(token);
       } else if (data.error?.code === 'TERMS_NOT_ACCEPTED') {
         setTermsModalSlotId(slotId);
+      } else if (data.error?.code === 'EMAIL_NOT_VERIFIED') {
+        setVerifyEmailSlotId(slotId);
+        setShowVerifyEmail(true);
       } else {
         addToast('error', 'Không thể đặt lịch', `${data.error.message} (${data.error.code})`);
       }
@@ -1571,6 +1579,10 @@ export default function App() {
           'Đã tạo yêu cầu nạp tiền',
           `Số tiền: ${amount.toLocaleString('vi-VN')} VND. Vui lòng chọn kịch bản phản hồi Webhook giả lập bên dưới.`
         );
+      } else if (data.error?.code === 'EMAIL_NOT_VERIFIED') {
+        // Mở thẳng màn xác minh thay vì chỉ báo lỗi (trước đây Web không có chỗ xác minh)
+        setShowTopup(false);
+        setShowVerifyEmail(true);
       } else {
         addToast('error', 'Lỗi tạo yêu cầu nạp tiền', data.error.message);
       }
@@ -2438,8 +2450,11 @@ export default function App() {
     });
   }, [companions, selectedGame, searchQuery]);
 
-  const isDevMode = 
-    import.meta.env.DEV || 
+  // Công cụ demo (nút giả lập webhook nạp tiền…) hiện khi SERVER báo môi trường không phải production.
+  // Trước đây chỉ dựa vào chế độ build của Vite → bản build phục vụ ở :4000 / Docker ẩn mất nút, không hoàn tất được nạp tiền.
+  const isDevMode =
+    import.meta.env.DEV ||
+    (health?.environment !== undefined && health.environment !== 'production') ||
     (typeof window !== 'undefined' && (window.location.search.includes('dev=1') || window.location.search.includes('demo=1')));
 
   return (
@@ -2687,6 +2702,7 @@ export default function App() {
             setActiveTab={handleTabChangeWithGuard}
             onLogout={() => logout(false)}
             onTopupClick={() => setShowTopup(true)}
+            onVerifyEmailClick={() => setShowVerifyEmail(true)}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             myBookings={myBookings}
@@ -4496,6 +4512,23 @@ export default function App() {
       <Footer />
     </div>
   )}
+
+      <EmailVerificationModal
+        open={showVerifyEmail && !!currentUser}
+        email={currentUser?.email ?? ''}
+        onClose={() => {
+          setShowVerifyEmail(false);
+          setVerifyEmailSlotId(null);
+        }}
+        onVerified={async () => {
+          const slotId = verifyEmailSlotId;
+          setShowVerifyEmail(false);
+          setVerifyEmailSlotId(null);
+          if (token) await loadMe(token);
+          addToast('success', 'Xác minh email thành công', slotId ? 'Đang tiếp tục đặt lịch cho khung giờ bạn đã chọn…' : 'Bạn đã có thể nạp tiền và đặt lịch.');
+          if (slotId) handleBookSlot(slotId);
+        }}
+      />
 
       <TermsAcceptanceModal
         open={termsModalSlotId !== null}
