@@ -40,9 +40,10 @@ Hệ thống giải quyết triệt để 3 vấn nạn nhức nhối nhất tro
 | **Kiến trúc** | **Modular Monolith** | Đóng gói trong 1 repository, phân chia module miền nghiệp vụ rõ rệt, dễ demo, không phát sinh chi phí hạ tầng. |
 | **Backend** | **Node.js + Express (TypeScript)** | Toàn bộ codebase dùng TypeScript strict mode; xử lý bất đồng bộ mạnh mẽ với `async/await`. |
 | **Frontend** | **React 18 + Vite + Tailwind CSS** | Khởi động tức thì, bundle tối ưu (73.78 kB gzip), giao diện người dùng chuyên nghiệp hỗ trợ 5 vai trò. |
-| **Cơ sở dữ liệu** | **SQLite 3 qua Prisma ORM** | **100% Zero-config**, không cần cài database daemon, tương thích chuyển đổi tức thì sang PostgreSQL. |
+| **Mobile** | **Flutter (iOS + Android)** | Renter & Companion; dùng chung REST API + SQL Server với Web; deep link `instasquad://`, App Links `/go/*` (`mobile/README.md`). |
+| **Cơ sở dữ liệu** | **SQL Server 2022 qua Prisma ORM** | Khóa slot bằng `UPDATE … WHERE status='AVAILABLE'`, filtered unique index (D34); chạy trong container Docker (D33). |
 | **Kênh Realtime** | **WebSocket Server (`ws`)** | Tích hợp trực tiếp vào Express HTTP server, không phụ thuộc dịch vụ trả phí bên thứ ba (Pusher/Firebase). |
-| **Kiểm thử** | **Vitest + Supertest** | 22 test suites, **228 tests PASS (100% GREEN)**, bao phủ trọn vẹn 70 Acceptance Tests WBS cùng các ca kiểm thử bảo mật nâng cao P0, eKYC AES-256-GCM, Anti-Enumeration, SiteVisit bot filtering/HMAC và Sổ cái kép. |
+| **Kiểm thử** | **Vitest + Supertest, Flutter test** | Backend 40 file / **414 test** trên SQL Server; E2E HTTP 41 kiểm tra; Mobile 20 test. Số liệu: `docs/QA_REPORT.md`. |
 | **Container hóa** | **Docker & Docker Compose** | Multi-stage build độc lập trên nền Linux Alpine, khởi chạy trọn gói bằng 1 lệnh duy nhất. |
 
 ---
@@ -50,100 +51,100 @@ Hệ thống giải quyết triệt để 3 vấn nạn nhức nhối nhất tro
 ## 4. Yêu cầu hệ thống (Prerequisites)
 
 - **Hệ điều hành**: Windows 10/11, macOS hoặc Linux.
-- **Node.js**: Phiên bản `18.x`, `20.x`, `22.x` hoặc `24.x` (Đã kiểm thử thực tế trên Node `v24.14.1`).
-- **NPM**: Phiên bản `9.x` trở lên (Đã kiểm thử trên npm `11.11.0`).
-- **Docker** *(Tùy chọn)*: Docker Desktop nếu muốn chạy trong môi trường containerized.
+- **Node.js**: `20.x`, `22.x` hoặc `24.x` (đã kiểm thử trên Node `v24.15.0`, npm `11.12.1`).
+- **Docker Desktop**: chạy SQL Server 2022 trong container `instasquad-mssql` (cổng `14330`). Hoặc dùng SQL Server cài sẵn đã bật TCP/IP + SQL login (D33).
+- **Flutter SDK** *(chỉ khi làm Mobile)*: ≥ 3.35, đã kiểm chứng trên `3.50.0` stable. Chạy App trên giả lập/thiết bị cần thêm Android SDK hoặc Xcode.
 
 ---
 
 ## 5. Cấu hình biến môi trường (.env Configuration)
 
-Hệ thống đã có sẵn tệp cấu hình mẫu `.env.example`. Khi khởi tạo, sao chép sang `.env`:
+Sao chép tệp mẫu (script khởi chạy nhanh tự làm việc này):
 
-```bash
-cp .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
 | Biến môi trường | Giá trị mặc định | Mô tả |
 |:---|:---|:---|
-| `PORT` | `4000` | Cổng lắng nghe của Backend API & WebSocket Server. |
-| `NODE_ENV` | `development` | Môi trường chạy (`development` hoặc `production`). Khi ở `production`, API `reset-demo` sẽ tự động bị khóa. |
-| `DATABASE_URL` | `"file:./prisma/dev.db"` | Đường dẫn file cơ sở dữ liệu SQLite cục bộ. |
-| `JWT_SECRET` | `"instasquad_super_secret_jwt_demo_key_2026"` | Khóa ký mã hóa JSON Web Token định danh người dùng. |
-| `CLIENT_URL` | `"http://localhost:5173"` | Địa chỉ CORS cho phép Frontend truy cập API. |
-| `HOLD_TTL_MINUTES` | `10` | Thời hạn giữ slot tạm thời (áp dụng theo Quyết định D01). |
+| `PORT` | `4000` | Cổng Backend API & WebSocket (đồng thời phục vụ bản build Web). |
+| `NODE_ENV` | `development` | Ở `production`, API `reset-demo` tự động bị khóa. |
+| `DATABASE_URL` | `sqlserver://localhost:14330;database=instasquad;…` | Chuỗi kết nối SQL Server. Bộ test tự dùng DB `<tên>_test` (D41). |
+| `JWT_SECRET` | *(xem `.env.example`)* | Khóa ký JWT — **đổi** ở môi trường thật. |
+| `CORS_ORIGIN` | `http://localhost:5173` | Địa chỉ Web dev (Vite) được phép gọi API. |
+| `SLOT_HOLD_TTL_MINUTES` / `BOOKING_RESPONSE_TIMEOUT_SECONDS` / `FULFILLMENT_ACCEPTANCE_TIMEOUT_MINUTES` | `10` / `180` / `15` | Giữ slot, hạn phản hồi Companion, hạn nghiệm thu. |
+| `ENABLE_BACKGROUND_WORKER` | `true` | Worker nền quét hết hạn 180s / 15 phút (chu kỳ `BACKGROUND_WORKER_INTERVAL_MS`). |
+| `REQUIRE_TERMS_ACCEPTANCE` | `true` | Chặn giao dịch khi chưa chấp thuận điều khoản hiện hành (D39). |
+| `ANDROID_PACKAGE_NAME`, `ANDROID_SHA256_CERT_FINGERPRINTS`, `IOS_TEAM_ID`, `IOS_BUNDLE_ID` | `vn.instasquad.app`, giá trị mẫu | Nội dung `/.well-known/*` cho App Links / Universal Links. |
 
 ---
 
 ## 6. Hướng dẫn khởi chạy (Setup & Execution)
 
-### Cách 1: Khởi chạy nhanh 1-click (Khuyến nghị cho chấm bài)
+### Cách 1: Khởi chạy nhanh 1-click (Windows)
 
-#### Trên Windows:
-Nhấp đúp vào tệp kịch bản tự động:
 ```powershell
 .\scripts\run-dev.bat
 ```
-Hoặc mở terminal PowerShell tại thư mục dự án và chạy:
+
+Script tạo `.env` nếu chưa có, bật container SQL Server, tạo database, áp migration rồi chạy song song Backend (`http://localhost:4000`) và Web (`http://localhost:5173`). macOS / Linux: `./scripts/run-dev.sh`.
+
+### Cách 2: Từng bước (3 lệnh — lần đầu)
+
 ```powershell
-npm run setup && npm run dev
+npm run db:up      # bật container SQL Server 2022 (cổng 14330)
+npm run setup      # cài package, prisma generate, tạo DB, migrate, seed dữ liệu demo
+npm run dev        # Backend :4000 + Web :5173
 ```
 
-#### Trên macOS / Linux:
-```bash
-chmod +x scripts/*.sh
-./scripts/run-dev.sh
+`npm run db:reset` đưa DB dev về dữ liệu seed sạch (xóa dữ liệu hiện có của DB dev).
+
+### Cách 3: Docker toàn bộ
+
+```powershell
+docker compose up -d --build
 ```
 
-### Cách 2: Thiết lập từng bước thủ công
+Mở `http://localhost:4000` (Backend phục vụ luôn bản build Web). Dữ liệu SQL Server nằm trong volume `instasquad_mssql_data`.
 
-```bash
-# 1. Cài đặt dependencies cho Backend và Frontend (với cờ --ignore-scripts nếu môi trường Node 18.16)
-npm run setup
+> [!WARNING]
+> Không chạy `docker system prune --volumes` hoặc "Clean / Purge data" trong Docker Desktop: thao tác này xóa volume chứa CSDL.
 
-# Hoặc thiết lập thủ công:
-npm install --ignore-scripts
-npm --prefix client install
-npx prisma generate
-npx prisma migrate deploy
-npm run prisma:seed
+### Mobile App (Flutter)
 
-# 2. Khởi chạy ứng dụng song song
-npm run dev
+Xem [mobile/README.md](mobile/README.md). Tóm tắt:
+
+```powershell
+cd mobile
+flutter pub get
+flutter test
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:4000
 ```
-
-> [!NOTE]
-> **Tương thích Node 18.16**: Script `npm run setup` cấu hình cờ `--ignore-scripts` để vượt qua kiểm tra phiên bản preinstall của Prisma 6 trên Node 18.16. Mã nguồn và Prisma Client chạy ổn định 100% trên cả Node 18, 20, 22 và 24.
-> 
-> **Triển khai sạch (Clean Clone)**: Chỉ cần chạy lệnh `npx prisma migrate deploy` để áp dụng toàn bộ 3 migration của dự án vào cơ sở dữ liệu SQLite mới mà không gặp bất kỳ lỗi thiếu bảng/cột nào.
-
-### Cách 3: Khởi chạy bằng Docker
-
-```bash
-docker compose up --build
-```
-
-Ứng dụng sẽ tự động chạy toàn bộ migrations, nạp seed data và mở tại:
-- **Frontend Web UI**: `http://localhost:5173`
-- **Backend API Server**: `http://localhost:4000` (Health check: `http://localhost:4000/api/health`)
-- **WebSocket Endpoint**: `ws://localhost:4000/ws`
 
 ---
 
 ## 7. Quy trình Kiểm thử Tự động (Automated Testing)
 
-Hệ thống sở hữu bộ kiểm thử tự động toàn diện gồm **228 test cases** thuộc **22 test files** (18 integration test suites với 187 tests, 3 unit test suites với 29 tests):
+Chi tiết và số liệu đo: [docs/QA_REPORT.md](docs/QA_REPORT.md).
 
-```bash
-# Chạy toàn bộ 228 ca kiểm thử tự động
+```powershell
+# Backend: 40 file / 414 test trên DB SQL Server riêng `instasquad_test` (tự migrate + seed)
 npm test
+npx vitest run tests/unit           # 6 file / 69 test (toán tài chính, TrustScore, bất biến sổ cái)
+npx vitest run tests/integration    # 34 file / 345 test (API, bảo mật, đồng thời trên SQL Server)
 
-# Chạy riêng nhóm Unit Tests & Bất biến bảo toàn tiền tệ (29 tests)
-npx vitest run tests/unit
+# Đối soát sổ cái trên DB đang trỏ tới (chỉ đọc)
+npm run ledger:reconcile
 
-# Chạy riêng nhóm Integration Tests & Kiểm thử bảo mật (187 tests)
-npx vitest run tests/integration
+# E2E qua HTTP thật — chạy trên DB QA riêng, KHÔNG chạy trên DB dev (xem QA_REPORT §8)
+node scripts/qa/e2e-api-workflow.mjs http://localhost:4100
+
+# Mobile
+cd mobile; flutter analyze; flutter test
 ```
+
+> [!NOTE]
+> Tiến trình Node đôi khi sập ở tầng native khi chạy bộ test Backend trên Windows (mã `0xC0000409` hoặc `ERR_IPC_CHANNEL_CLOSED`) dù mọi test đều pass khi chạy trọn — chạy lại lệnh. Chi tiết: QA_REPORT §1.3, D44.
 
 ---
 
@@ -156,7 +157,7 @@ Hệ thống thống nhất quy định kích thước tệp tải lên của ng
 - **Cơ chế đệm HTTP Body Base64 (3MB và 10MB)**: Do mã hóa Base64 qua JSON làm tăng $\approx 33.3\%$ kích thước tệp nhị phân gốc, router Express cấu hình giới hạn sơ bộ `limit: '3mb'` (cho audio và ảnh khiếu nại) và `limit: '10mb'` (cho gói 3 ảnh eKYC) để tiếp nhận an toàn trước khi giải mã và kiểm tra dung lượng thật $\le 2$MB.
 
 > [!NOTE]
-> Báo cáo kiểm thử độc lập chi tiết về kết quả từng nhóm được lưu trữ tại [`docs/QA_REPORT.md`](file:///c:/Users/pc/Documents/INSTASQUAD/docs/QA_REPORT.md).
+> Báo cáo kiểm thử độc lập chi tiết về kết quả từng nhóm được lưu trữ tại [`docs/QA_REPORT.md`](docs/QA_REPORT.md).
 
 ---
 
@@ -181,7 +182,7 @@ Hệ thống thống nhất quy định kích thước tệp tải lên của ng
 
 ## 10. Hai con số tổng kết đối chiếu tham chiếu vận hành (Playerduo & Lita)
 
-Theo [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md), hệ thống tách bạch rõ ràng ba phương diện đối chiếu chuẩn hóa (28 dòng REF):
+Theo [`docs/REFERENCE_MAPPING.md`](docs/REFERENCE_MAPPING.md), hệ thống tách bạch rõ ràng ba phương diện đối chiếu chuẩn hóa (28 dòng REF):
 1. **Mức hoàn thiện triển khai (28 dòng REF)**: **25 dòng ĐẦY ĐỦ (89.3%)**, **2 dòng MỘT PHẦN (7.1%)** (`REF-CHAT-01`, `REF-TAX-01`), **1 dòng CHƯA CÓ / CHƯA ĐÁP ỨNG (3.6%)** (`REF-AUTH-03` – Google OAuth2), **0 dòng thiếu ngoài tầm kiểm soát**.
 2. **Độ chính xác tài liệu tham chiếu (28 dòng REF)**: **24 dòng KHỚP (85.7%)**, **3 dòng KHÁC NGUỒN (10.7%)** (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`), **1 dòng CHƯA KIỂM CHỨNG ĐƯỢC (3.6%)** (Ảnh Lita nút Nạp Xu `REF-TOPUP-01` chưa có tệp trên đĩa).
 3. **Phân loại theo Loại thiết kế (28 dòng REF)**: **23 dòng LẤY THEO NGUỒN (82.1%)**, **2 dòng NHÓM PHÁT TRIỂN THÊM (7.1%)** (`REF-TOPUP-03`, `REF-TOPUP-05`), **3 dòng KHÁC NGUỒN (10.7%)** (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`).
@@ -201,11 +202,15 @@ Theo [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFEREN
    - Trên thanh điều hướng Header của giao diện web, nhấp vào nút `[MOCK] Reset DB`.
    - Hoặc từ dòng lệnh terminal:
      ```bash
-     npm run prisma:seed
+     npm run db:reset
      ```
-   - Lệnh seed được thiết kế theo cơ chế **Idempotent**, tự động làm sạch các bảng và nạp lại trạng thái ban đầu an toàn.
+   - `db:reset` xóa và dựng lại DB dev từ migration rồi seed dữ liệu demo (chỉ tác động DB trong `DATABASE_URL`).
 3. **Mã nguồn Backend không tự reload khi sửa code**:
-   - Server sử dụng `tsx watch`, tự động theo dõi các tệp trong `server/src/`. Nếu không nhận diện thay đổi, hãy kiểm tra lại quyền truy cập thư mục của hệ điều hành.
+   - `npm run dev:server` chạy `tsx server/src/server.ts` (không bật chế độ watch). Sau khi sửa mã Backend, dừng (`Ctrl+C`) rồi chạy lại `npm run dev`.
+4. **Không kết nối được SQL Server (Prisma `P1001` / Can't reach database server)**:
+   - Kiểm tra Docker Desktop đang chạy rồi `npm run db:up`; container cần ~10–20 giây để sẵn sàng (`docker logs instasquad-mssql`).
+   - Nếu Docker báo lỗi engine dừng: kiểm tra dung lượng ổ C (ổ đầy làm Docker không khởi động được). Giải phóng dung lượng **không** dùng `docker system prune --volumes` hay "Clean / Purge data" vì sẽ xóa CSDL.
+   - Sau khi khởi động lại, SQL Server tự recovery các database; kiểm tra bằng `npm run ledger:reconcile`.
 
 ---
 

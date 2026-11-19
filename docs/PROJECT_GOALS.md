@@ -2,6 +2,7 @@
 
 > Phiên bản 1.0 · 2026-11-18. Hai nhóm: **G-Tech** (nền tảng, kiểm chứng được bằng test/code trong repo) và **G-Growth** (marketing & kênh, KPI giả định để đo lường — nhãn `DEMO_POLICY`).
 > Cột "Trạng thái" được cập nhật ở Bước 6 dựa trên bằng chứng thực tế, không tự đánh Done.
+> **Trạng thái theo bằng chứng (18/11/2026)**: xem [`QA_REPORT.md` §10](QA_REPORT.md) — Đạt: G1, G2, G3, G4, G6 · Đạt một phần: G5 · Một phần: G7, G8 · Chưa: G9, G10.
 
 ## 1. G-Tech — Nền tảng
 
@@ -15,12 +16,12 @@
 | **G6** | Pháp lý thực thi được | Tỷ lệ giao dịch có bản ghi chấp thuận điều khoản; vi phạm được ghi nhận có TrustScoreLog | 100% | Test `legal_terms_violations` |
 
 ### Checklist hành động G-Tech
-- [ ] G1: Chuyển Prisma sang SQL Server, migration + seed, chạy reconciliation trên DB thật.
-- [ ] G2: Test 10 request đồng thời vào cùng slot trên SQL Server.
-- [ ] G3: Giữ nguyên toàn bộ test idempotency hiện có, chạy lại trên SQL Server.
-- [ ] G4: Bổ sung dải "Quy trình 8 bước" trên Web; xây 8 nhóm màn hình Flutter.
-- [ ] G5: Cập nhật README (SQL Server + Backend + Web + Mobile), `QA_REPORT.md`.
-- [ ] G6: Module `legal` (terms version, acceptance, violation catalog/record), chặn đặt lịch khi chưa chấp thuận.
+- [x] G1: Chuyển Prisma sang SQL Server, migration + seed, chạy reconciliation trên DB thật.
+- [x] G2: Test 10 request đồng thời vào cùng slot trên SQL Server.
+- [x] G3: Giữ nguyên toàn bộ test idempotency hiện có, chạy lại trên SQL Server.
+- [x] G4: Bổ sung dải "Quy trình 8 bước" trên Web; xây 8 nhóm màn hình Flutter.
+- [x] G5: Cập nhật README (SQL Server + Backend + Web + Mobile), `QA_REPORT.md`.
+- [x] G6: Module `legal` (terms version, acceptance, violation catalog/record), chặn đặt lịch khi chưa chấp thuận.
 
 ## 2. G-Growth — Marketing & Kênh
 
@@ -32,9 +33,9 @@
 | **G10** | Giữ chân & niềm tin | Tỷ lệ Renter quay lại trong 30 ngày; thời gian xử lý khiếu nại TB | ≥ 30%; < 45 phút | `bookings`, `dispute_cases` |
 
 ### Checklist hành động G-Growth
-- [ ] G7: Seed 4 dịch vụ SOCIAL + Companion mẫu; tab "Trò chuyện & Giải trí" trên Web và App.
+- [x] G7: Seed 4 dịch vụ SOCIAL + Companion mẫu; tab "Trò chuyện & Giải trí" trên Web và App.
 - [ ] G7: Onboarding 3 câu hỏi trên App.
-- [ ] G8: Endpoint `/go/*` ghi UTM; `.well-known` cho App Links/Universal Links; lịch nội dung 4 tuần cho TikTok/Reels/Threads.
+- [ ] G8: Endpoint `/go/*` ghi UTM; `.well-known` cho App Links/Universal Links (**đã làm**); lịch nội dung 4 tuần cho TikTok/Reels/Threads (**chưa làm**).
 - [ ] G8: Mỗi bài đăng một link `/go/...` riêng có `utm_campaign` để so sánh hiệu quả.
 - [ ] G9: Dashboard Admin hiển thị conversion theo `utm_source`.
 - [ ] G10: Thông báo nhắc đánh giá sau phiên; báo cáo SLA khiếu nại theo tuần.
