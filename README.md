@@ -43,7 +43,7 @@ Hệ thống giải quyết triệt để 3 vấn nạn nhức nhối nhất tro
 | **Mobile** | **Flutter (iOS + Android)** | Renter & Companion; dùng chung REST API + SQL Server với Web; deep link `instasquad://`, App Links `/go/*` (`mobile/README.md`). |
 | **Cơ sở dữ liệu** | **SQL Server 2022 qua Prisma ORM** | Khóa slot bằng `UPDATE … WHERE status='AVAILABLE'`, filtered unique index (D34); chạy trong container Docker (D33). |
 | **Kênh Realtime** | **WebSocket Server (`ws`)** | Tích hợp trực tiếp vào Express HTTP server, không phụ thuộc dịch vụ trả phí bên thứ ba (Pusher/Firebase). |
-| **Kiểm thử** | **Vitest + Supertest, Flutter test** | Backend 40 file / **414 test** trên SQL Server; E2E HTTP 41 kiểm tra; Mobile 20 test. Số liệu: `docs/QA_REPORT.md`. |
+| **Kiểm thử** | **Vitest + Supertest, Flutter test** | Backend 41 file / **420 test** trên SQL Server; E2E HTTP 43 kiểm tra; Mobile 27 test. Số liệu: `docs/QA_REPORT.md`. |
 | **Container hóa** | **Docker & Docker Compose** | Multi-stage build độc lập trên nền Linux Alpine, khởi chạy trọn gói bằng 1 lệnh duy nhất. |
 
 ---
@@ -128,10 +128,10 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:4000
 Chi tiết và số liệu đo: [docs/QA_REPORT.md](docs/QA_REPORT.md).
 
 ```powershell
-# Backend: 40 file / 414 test trên DB SQL Server riêng `instasquad_test` (tự migrate + seed)
+# Backend: 41 file / 420 test trên DB SQL Server riêng `instasquad_test` (tự migrate + seed)
 npm test
 npx vitest run tests/unit           # 6 file / 69 test (toán tài chính, TrustScore, bất biến sổ cái)
-npx vitest run tests/integration    # 34 file / 345 test (API, bảo mật, đồng thời trên SQL Server)
+npx vitest run tests/integration    # 35 file / 351 test (API, bảo mật, đồng thời trên SQL Server)
 
 # Đối soát sổ cái trên DB đang trỏ tới (chỉ đọc)
 npm run ledger:reconcile
