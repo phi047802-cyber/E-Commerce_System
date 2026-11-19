@@ -2,9 +2,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../common/prisma.js';
 import { env } from '../../config/env.js';
-import { ConflictError, UnauthorizedError, NotFoundError, BusinessError } from '../../common/errors.js';
+import { ConflictError, UnauthorizedError, NotFoundError, BusinessError, ForbiddenError } from '../../common/errors.js';
 import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput, SendVerifyOtpInput, VerifyEmailInput } from './auth.dto.js';
 import { emailService } from './email.service.js';
+import { CURRENT_TERMS_VERSION } from '../legal/legal.catalog.js';
+import { extractUtm } from '../../common/utm.js';
 
 export class AuthService {
   async register(input: RegisterInput) {
@@ -39,6 +41,9 @@ export class AuthService {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(input.password, salt);
 
+    // Kênh nguồn first-touch (G9): làm sạch giống site_visits; bỏ qua nếu không hợp lệ
+    const signupUtm = extractUtm(input as unknown as Record<string, unknown>);
+
     // Tạo User kèm Wallet ban đầu trong một transaction
     const user = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -49,6 +54,9 @@ export class AuthService {
           role: input.role,
           phone_number: input.phone_number,
           is_email_verified: false,
+          signup_utm_source: signupUtm.utm_source ?? null,
+          signup_utm_medium: signupUtm.utm_medium ?? null,
+          signup_utm_campaign: signupUtm.utm_campaign ?? null,
         },
       });
 
@@ -70,6 +78,12 @@ export class AuthService {
             trust_score: 80.0,
             verification_status: 'UNVERIFIED',
           },
+        });
+      }
+
+      if (input.accept_terms_version === CURRENT_TERMS_VERSION) {
+        await tx.termsAcceptance.create({
+          data: { user_id: newUser.user_id, terms_version: CURRENT_TERMS_VERSION, channel: input.channel ?? 'WEB' },
         });
       }
 
@@ -111,6 +125,18 @@ export class AuthService {
 
     if (user.status === 'BANNED') {
       throw new UnauthorizedError('Tài khoản này đã bị khóa vĩnh viễn.');
+    }
+
+    // Tạm khóa có thời hạn do vi phạm điều khoản (TERMS_AND_CONTRACTS.md Phần C)
+    if (user.status === 'SUSPENDED') {
+      if (user.suspended_until && user.suspended_until.getTime() <= Date.now()) {
+        await prisma.user.update({ where: { user_id: user.user_id }, data: { status: 'ACTIVE', suspended_until: null } });
+      } else {
+        throw new ForbiddenError(
+          `Tài khoản đang bị tạm khóa${user.suspended_until ? ' đến ' + user.suspended_until.toISOString() : ''} do vi phạm điều khoản.`,
+          'ACCOUNT_SUSPENDED'
+        );
+      }
     }
 
     const isMatch = await bcrypt.compare(input.password, user.password_hash);

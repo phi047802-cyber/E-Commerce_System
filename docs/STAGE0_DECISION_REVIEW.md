@@ -18,40 +18,40 @@ Truy vết toàn bộ luồng xử lý từ Route $\rightarrow$ Middleware $\rig
 
 1. **Request body được xác thực bằng schema nào?**  
    - **KẾT LUẬN TỪ CODE:** **HOÀN TOÀN KHÔNG CÓ SCHEMA XÁC THỰC BODY.**  
-   - **Bằng chứng:** Tại [`server/src/modules/booking/booking.router.ts` L40](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.router.ts#L40), route được định nghĩa trần:  
+   - **Bằng chứng:** Tại [`server/src/modules/booking/booking.router.ts` L40](../server/src/modules/booking/booking.router.ts#L40), route được định nghĩa trần:  
      `bookingRouter.post('/:id/auto-accept', asyncHandler(handleAutoAccept));`  
-     Trong khi các route khác đều có middleware `validateBody(...)` (L31, L36, L38, L41), route `/:id/auto-accept` đã bỏ sót middleware kiểm thực body. Mặc dù trong [`session.dto.ts` L18–20](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/session/session.dto.ts#L18-L20) có khai báo `autoAcceptSchema`, nhưng schema này **chưa từng được gắn vào router**.
+     Trong khi các route khác đều có middleware `validateBody(...)` (L31, L36, L38, L41), route `/:id/auto-accept` đã bỏ sót middleware kiểm thực body. Mặc dù trong [`session.dto.ts` L18–20](../server/src/modules/session/session.dto.ts#L18-L20) có khai báo `autoAcceptSchema`, nhưng schema này **chưa từng được gắn vào router**.
 
 2. **`simulated_now` có được phép gửi trong môi trường Production không?**  
    - **KẾT LUẬN TỪ CODE:** **CÓ, ĐƯỢC PHÉP GỬI TRONG MỌI MÔI TRƯỜNG KỂ CẢ PRODUCTION.**  
-   - **Bằng chứng:** Tại [`server/src/modules/booking/booking.controller.ts` L117](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.controller.ts#L117):  
+   - **Bằng chứng:** Tại [`server/src/modules/booking/booking.controller.ts` L117](../server/src/modules/booking/booking.controller.ts#L117):  
      `const simulatedNow = req.body?.simulated_now ? new Date(req.body.simulated_now) : undefined;`  
      Controller bóc tách trực tiếp từ `req.body` mà không có bất kỳ dòng kiểm tra `if (env.NODE_ENV === 'production')` nào.
 
 3. **Có kiểm tra role ADMIN, môi trường TEST hoặc feature flag trước khi sử dụng không?**  
    - **KẾT LUẬN TỪ CODE:** **HOÀN TOÀN KHÔNG CÓ BẤT KỲ LỚP BẢO VỆ NÀO.**  
-   - **Bằng chứng:** Controller không đọc `req.user.role`, không kiểm tra `ADMIN`, không kiểm tra cờ môi trường. Giá trị `simulatedNow` được chuyển thẳng vào [`bookingService.autoAccept(id, simulatedNow)` L119](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.controller.ts#L119).
+   - **Bằng chứng:** Controller không đọc `req.user.role`, không kiểm tra `ADMIN`, không kiểm tra cờ môi trường. Giá trị `simulatedNow` được chuyển thẳng vào [`bookingService.autoAccept(id, simulatedNow)` L119](../server/src/modules/booking/booking.controller.ts#L119).
 
 4. **Giá trị được parse thành ngày giờ thế nào? Kiểm tra định dạng và bẫy `NaN`?**  
    - **KẾT LUẬN TỪ CODE:** Parse bằng hàm nguyên thủy `new Date(req.body.simulated_now)`.  
    - **BẪY LỖ HỔNG JAVASCRIPT ĐẶC BIỆT NGUY HIỂM:**  
      - Nếu client truyền chuỗi không hợp lệ (ví dụ: `{"simulated_now": "invalid"}`), `new Date(...)` trả về `Invalid Date` (`getTime() === NaN`).  
-     - Tại [`booking.service.ts` L1340–1341](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.service.ts#L1340-L1341):  
+     - Tại [`booking.service.ts` L1340–1341](../server/src/modules/booking/booking.service.ts#L1340-L1341):  
        `const checkTime = simulatedNow || new Date();`  
        `if (checkTime < booking.confirm_deadline) throw new BusinessError('ACCEPTANCE_DEADLINE_NOT_REACHED');`  
      - Trong đặc tả JavaScript, phép so sánh `Invalid Date < booking.confirm_deadline` luôn trả về **`false`**!  
      - Do đó, điều kiện chặn deadline bị bỏ qua hoàn toàn, code tiếp tục thực thi xuống lệnh giải ngân Sổ cái kép!
 
 5. **Service sử dụng đồng hồ thật hay thời gian do client truyền?**  
-   - **KẾT LUẬN TỪ CODE:** Ưu tiên thời gian client truyền: `const checkTime = simulatedNow || new Date();` ([`booking.service.ts` L1340](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.service.ts#L1340)).
+   - **KẾT LUẬN TỪ CODE:** Ưu tiên thời gian client truyền: `const checkTime = simulatedNow || new Date();` ([`booking.service.ts` L1340](../server/src/modules/booking/booking.service.ts#L1340)).
 
 6. **Mô tả đường đi logic nếu client gửi thời điểm năm 2099:**  
    - **Bước 1:** Client gửi `POST /api/bookings/:id/auto-accept` kèm header `Authorization: Bearer <jwt_bất_kỳ>` và body `{"simulated_now": "2099-01-01T00:00:00Z"}`.  
-   - **Bước 2:** Middleware `authenticate` xác thực JWT hợp lệ ([`booking.router.ts` L29](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.router.ts#L29)).  
+   - **Bước 2:** Middleware `authenticate` xác thực JWT hợp lệ ([`booking.router.ts` L29](../server/src/modules/booking/booking.router.ts#L29)).  
    - **Bước 3:** Controller tạo đối tượng `simulatedNow = new Date("2099-01-01T00:00:00Z")` và gọi `bookingService.autoAccept(id, simulatedNow)`.  
    - **Bước 4:** Service kiểm tra `booking` tồn tại, chưa bị khiếu nại (`DISPUTED`) và Escrow chưa bị đóng băng (`FROZEN`).  
    - **Bước 5:** So sánh `checkTime (năm 2099) < booking.confirm_deadline` $\rightarrow$ Đánh giá là **`false`** $\rightarrow$ **Không ném lỗi `ACCEPTANCE_DEADLINE_NOT_REACHED`**.  
-   - **Bước 6:** Service gọi [`settlementService.settleBooking(bookingId, 'SYSTEM_AUTO_ACCEPT_TIMEOUT')`](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.service.ts#L1348).  
+   - **Bước 6:** Service gọi [`settlementService.settleBooking(bookingId, 'SYSTEM_AUTO_ACCEPT_TIMEOUT')`](../server/src/modules/booking/booking.service.ts#L1348).  
    - **Bước 7:** Bên trong `prisma.$transaction`:  
      - Chuyển `booking.status` $\rightarrow$ `COMPLETED`.  
      - Ghi bút toán Sổ cái kép: trừ ví ký quỹ Renter `total_fee_snapshot`, cộng 88% vào ví khả dụng Companion, cộng 12% vào ví Sàn.  
@@ -60,10 +60,10 @@ Truy vết toàn bộ luồng xử lý từ Route $\rightarrow$ Middleware $\rig
    - **HỆ QUẢ THỰC TẾ:** Companion hoặc kẻ tấn công có thể ép giải ngân sớm 88% số tiền ngay khi phiên vừa kết thúc, tước đoạt hoàn toàn quyền kiểm tra dịch vụ và quyền gửi khiếu nại trong 15 phút của khách hàng.
 
 7. **Có đường gọi khác nào cho phép client kiểm soát thời gian không?**  
-   - **KẾT LUẬN TỪ CODE:** Đã rà soát toàn bộ file `server/src/**/*.ts`: **Không có endpoint nào khác nhận thời gian từ client.** Endpoint `/timeout` hoàn toàn dùng `now = new Date()` ([`booking.service.ts` L764](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.service.ts#L764)). Lỗ hổng điều khiển thời gian chỉ tồn tại duy nhất tại `POST /api/bookings/:id/auto-accept`.
+   - **KẾT LUẬN TỪ CODE:** Đã rà soát toàn bộ file `server/src/**/*.ts`: **Không có endpoint nào khác nhận thời gian từ client.** Endpoint `/timeout` hoàn toàn dùng `now = new Date()` ([`booking.service.ts` L764](../server/src/modules/booking/booking.service.ts#L764)). Lỗ hổng điều khiển thời gian chỉ tồn tại duy nhất tại `POST /api/bookings/:id/auto-accept`.
 
 8. **Test hiện có bao phủ những trường hợp nào?**  
-   - Đã đọc file [`tests/integration/session_fulfillment.test.ts` L521–528](file:///c:/INSTASQUAD/INSTASQUAD/tests/integration/session_fulfillment.test.ts#L521-L528): Test `TC43` cố tình gửi `simulated_now: +24h` nhưng bị chặn chỉ vì đơn đó đang có Escrow `FROZEN`.  
+   - Đã đọc file [`tests/integration/session_fulfillment.test.ts` L521–528](../tests/integration/session_fulfillment.test.ts#L521-L528): Test `TC43` cố tình gửi `simulated_now: +24h` nhưng bị chặn chỉ vì đơn đó đang có Escrow `FROZEN`.  
    - **Khoảng trống kiểm thử:** Chưa có test nào kiểm tra: user thường gửi `simulated_now` ở trạng thái bình thường; admin gửi `simulated_now`; môi trường production; thời gian không hợp lệ.
 
 ---
@@ -74,12 +74,12 @@ Bảng đối chiếu minh bạch giữa Authentication (Xác thực danh tính)
 
 | Tiêu chí kiểm định | `POST /api/bookings/:id/timeout` | `POST /api/bookings/:id/auto-accept` |
 |:---|:---|:---|
-| **Middleware xác thực** | `bookingRouter.use(authenticate)` tại [`booking.router.ts` L29](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.router.ts#L29). Yêu cầu Bearer JWT hợp lệ. | `bookingRouter.use(authenticate)` tại [`booking.router.ts` L29](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.router.ts#L29). Yêu cầu Bearer JWT hợp lệ. |
+| **Middleware xác thực** | `bookingRouter.use(authenticate)` tại [`booking.router.ts` L29](../server/src/modules/booking/booking.router.ts#L29). Yêu cầu Bearer JWT hợp lệ. | `bookingRouter.use(authenticate)` tại [`booking.router.ts` L29](../server/src/modules/booking/booking.router.ts#L29). Yêu cầu Bearer JWT hợp lệ. |
 | **Kiểm tra vai trò (Role)** | **KHÔNG CÓ**. Bất kỳ role nào (`CLIENT`, `COMPANION`, `ADMIN`, `CS_AGENT`) đều gọi được. | **KHÔNG CÓ**. Bất kỳ role nào (`CLIENT`, `COMPANION`, `ADMIN`, `CS_AGENT`) đều gọi được. |
-| **Kiểm tra quyền sở hữu (Ownership)** | **KHÔNG CÓ**. Controller lấy `actorId = req.user?.user_id` ([`booking.controller.ts` L83](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.controller.ts#L83)) nhưng service **không kiểm tra** `actorId` có phải là Renter hoặc Companion của đơn hay không. | **KHÔNG CÓ**. Controller thậm chí không truyền `userId` vào service. Không kiểm tra ai là người gửi request. |
-| **Điều kiện trạng thái & Deadline** | `status === 'WAITING_COMPANION_RESPONSE'` và `now > response_deadline` ([`booking.service.ts` L757, L765](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.service.ts#L757)). | `status in ['ACCEPTED', 'IN_SESSION']`, `escrow !== FROZEN`, `status !== DISPUTED`, và `checkTime >= confirm_deadline` ([`booking.service.ts` L1319–1341](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.service.ts#L1319-L1341)). |
+| **Kiểm tra quyền sở hữu (Ownership)** | **KHÔNG CÓ**. Controller lấy `actorId = req.user?.user_id` ([`booking.controller.ts` L83](../server/src/modules/booking/booking.controller.ts#L83)) nhưng service **không kiểm tra** `actorId` có phải là Renter hoặc Companion của đơn hay không. | **KHÔNG CÓ**. Controller thậm chí không truyền `userId` vào service. Không kiểm tra ai là người gửi request. |
+| **Điều kiện trạng thái & Deadline** | `status === 'WAITING_COMPANION_RESPONSE'` và `now > response_deadline` ([`booking.service.ts` L757, L765](../server/src/modules/booking/booking.service.ts#L757)). | `status in ['ACCEPTED', 'IN_SESSION']`, `escrow !== FROZEN`, `status !== DISPUTED`, và `checkTime >= confirm_deadline` ([`booking.service.ts` L1319–1341](../server/src/modules/booking/booking.service.ts#L1319-L1341)). |
 | **Khả năng người không liên quan kích hoạt** | **CÓ THỂ KÍCH HOẠT NẾU ĐƠN ĐÃ QUÁ HẠN.** User ngoài cuộc có JWT có thể trigger timeout của đơn người khác. (Không làm mất tiền vì tiền hoàn 100% về đúng ví Renter chủ đơn). | **CÓ THỂ KÍCH HOẠT VÀ GIẢI NGÂN SỚM NẾU TRUYỀN `simulated_now`.** Bất kỳ user nào gửi body thời gian tương lai đều có thể ép giải ngân sớm sang ví Companion. |
-| **Test chứng minh cho phép / từ chối** | `TC17` ([`booking_lifecycle.test.ts` L329](file:///c:/INSTASQUAD/INSTASQUAD/tests/integration/booking_lifecycle.test.ts#L329)) chứng minh chặn khi chưa hết hạn. Chưa có test chứng minh chặn user lạ. | `TC41` ([`session_fulfillment.test.ts` L451](file:///c:/INSTASQUAD/INSTASQUAD/tests/integration/session_fulfillment.test.ts#L451)) chứng minh chặn khi `checkTime < deadline`. Chưa có test chứng minh chặn user lạ hoặc chặn tham số `simulated_now`. |
+| **Test chứng minh cho phép / từ chối** | `TC17` ([`booking_lifecycle.test.ts` L329](../tests/integration/booking_lifecycle.test.ts#L329)) chứng minh chặn khi chưa hết hạn. Chưa có test chứng minh chặn user lạ. | `TC41` ([`session_fulfillment.test.ts` L451](../tests/integration/session_fulfillment.test.ts#L451)) chứng minh chặn khi `checkTime < deadline`. Chưa có test chứng minh chặn user lạ hoặc chặn tham số `simulated_now`. |
 
 ---
 
@@ -105,9 +105,9 @@ Kế hoạch kỹ thuật được phân loại theo mức độ ưu tiên:
 
 ### Mức P0 — Ảnh hưởng an toàn tiền tệ & Thao tác trái phép (Bắt buộc làm ngay đầu Giai đoạn 1)
 1. **[P0-1] Vô hiệu hóa tham số `simulated_now` ở môi trường Production / Non-Test:**
-   - *Giải pháp:* Tại [`booking.controller.ts` L117](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.controller.ts#L117), loại bỏ hoàn toàn việc đọc `req.body.simulated_now` trong luồng API thông thường. Nếu cần hỗ trợ test tự động, chỉ cho phép khi `env.NODE_ENV === 'test'` và bắt buộc caller phải có header bí mật nội bộ (`x-test-simulated-time`), tuyệt đối không mở ra ngoài client.
+   - *Giải pháp:* Tại [`booking.controller.ts` L117](../server/src/modules/booking/booking.controller.ts#L117), loại bỏ hoàn toàn việc đọc `req.body.simulated_now` trong luồng API thông thường. Nếu cần hỗ trợ test tự động, chỉ cho phép khi `env.NODE_ENV === 'test'` và bắt buộc caller phải có header bí mật nội bộ (`x-test-simulated-time`), tuyệt đối không mở ra ngoài client.
 2. **[P0-2] Bổ sung Ownership Check trên `POST /api/bookings/:id/timeout`:**
-   - *Giải pháp:* Tại [`booking.service.ts` L735](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.service.ts#L735), thêm kiểm tra quyền:  
+   - *Giải pháp:* Tại [`booking.service.ts` L735](../server/src/modules/booking/booking.service.ts#L735), thêm kiểm tra quyền:  
      `const isAuthorized = [booking.renter_id, booking.companion.user_id].includes(actorId) || ['ADMIN', 'CS_AGENT'].includes(userRole);`  
      Nếu không thỏa mãn $\rightarrow$ ném `ForbiddenError('FORBIDDEN', 'Bạn không có quyền xử lý đơn đặt lịch này.')`.
 3. **[P0-3] Bổ sung Authorization Check trên `POST /api/bookings/:id/auto-accept`:**
@@ -115,7 +115,7 @@ Kế hoạch kỹ thuật được phân loại theo mức độ ưu tiên:
 
 ### Mức P1 — Bảo vệ tính toàn vẹn dữ liệu & Chống Race Condition
 1. **[P1-1] Gắn schema validation cho `POST /api/bookings/:id/auto-accept`:**
-   - *Giải pháp:* Gắn middleware `validateBody(autoAcceptSchema)` vào [`booking.router.ts` L40](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/booking/booking.router.ts#L40) để chặn đứng các body rác hoặc body chứa payload không mong muốn.
+   - *Giải pháp:* Gắn middleware `validateBody(autoAcceptSchema)` vào [`booking.router.ts` L40](../server/src/modules/booking/booking.router.ts#L40) để chặn đứng các body rác hoặc body chứa payload không mong muốn.
 2. **[P1-2] Bổ sung kiểm tra tính hợp lệ của ngày giờ (`isValidDate`):**
    - *Giải pháp:* Kiểm tra `if (isNaN(checkTime.getTime())) throw new BusinessError('INVALID_DATETIME')` để triệt tiêu hoàn toàn bẫy `NaN` của JavaScript.
 3. **[P1-3] Bổ sung giới hạn an toàn trong `env.ts`:**
@@ -128,7 +128,7 @@ Kế hoạch kỹ thuật được phân loại theo mức độ ưu tiên:
 2. **[P2-2] Bổ sung test kiểm tra định dạng ngày không hợp lệ:**
    - Viết test chứng minh: Gửi `{"simulated_now": "invalid"}` $\rightarrow$ trả về lỗi 400 Bad Request, không giải ngân.
 3. **[P2-3] Cập nhật API Contract:**
-   - Chuẩn hóa tài liệu [`docs/API_CONTRACT.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/API_CONTRACT.md) phản ánh đúng ma trận quyền truy cập.
+   - Chuẩn hóa tài liệu [`docs/API_CONTRACT.md`](API_CONTRACT.md) phản ánh đúng ma trận quyền truy cập.
 
 ---
 

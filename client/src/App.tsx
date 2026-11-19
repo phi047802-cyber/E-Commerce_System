@@ -58,6 +58,16 @@ import { PaymentGuidePage } from './pages/PaymentGuidePage';
 import { ProfileView } from './components/ProfileView';
 import { Avatar } from './components/common/Avatar';
 import { getDisputeReasonLabel, formatShortId } from './common/messages.vi';
+import { TermsAcceptanceModal } from './components/legal/TermsAcceptanceModal';
+import { EmailVerificationModal } from './components/auth/EmailVerificationModal';
+import { ViolationPanel } from './components/legal/ViolationPanel';
+import { DisputeSlaReport } from './components/admin/DisputeSlaReport';
+import { ChannelConversionPanel } from './components/admin/ChannelConversionPanel';
+import { RetentionCard } from './components/admin/RetentionCard';
+import { rememberFirstTouch, utmFromUrl } from './common/attribution';
+import { WalletLedgerPanel } from './components/WalletLedgerPanel';
+import { NonGamerServices } from './components/NonGamerServices';
+import { UnifiedWorkflowPage } from './pages/UnifiedWorkflowPage';
 
 interface Toast {
   id: string;
@@ -132,6 +142,7 @@ interface AuthUserState {
   display_name: string;
   role: string;
   avatar_url?: string | null;
+  is_email_verified?: boolean;
   wallet?: {
     available_balance: number;
     escrow_balance: number;
@@ -152,6 +163,19 @@ export default function App() {
   const [selectedGame, setSelectedGame] = useState<string>('ALL');
   const [currentUser, setCurrentUser] = useState<AuthUserState | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  // Chấp thuận điều khoản trước giao dịch (D39): lưu slot đang chờ để tự đặt lại sau khi chấp thuận
+  const [termsModalSlotId, setTermsModalSlotId] = useState<string | null>(null);
+  // UC01: xác minh email trên Web. `verifyEmailSlotId` = khung giờ đang đặt dở để tự đặt tiếp sau khi xác minh.
+  const [showVerifyEmail, setShowVerifyEmail] = useState(false);
+  // Chống hiện trùng thông báo nạp tiền: sự kiện realtime (WebSocket) và phản hồi nút giả lập cùng báo 1 payment
+  const announcedTopupIds = useRef<Set<string>>(new Set());
+  const claimTopupAnnouncement = (paymentId?: string) => {
+    if (!paymentId) return true;
+    if (announcedTopupIds.current.has(paymentId)) return false;
+    announcedTopupIds.current.add(paymentId);
+    return true;
+  };
+  const [verifyEmailSlotId, setVerifyEmailSlotId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'catalog' | 'companion_dashboard' | 'cs_view' | 'auditor_view' | 'admin_dashboard' | 'admin_bookings' | 'profile'>('catalog');
@@ -651,6 +675,8 @@ export default function App() {
 
     // Ghi nhận lượt truy cập ẩn danh (Anonymous Session Counter - không lưu thông tin cá nhân)
     try {
+      // Kênh nguồn first-touch (G9): giữ UTM của lượt truy cập đầu tiên để gửi kèm khi đăng ký
+      rememberFirstTouch();
       let sessionKey = sessionStorage.getItem('instasquad_anon_session');
       if (!sessionKey) {
         sessionKey = 'sess-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now();
@@ -658,7 +684,8 @@ export default function App() {
         fetch('/api/analytics/visit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_key: sessionKey }),
+          // Gửi kèm utm_* của URL hiện tại (G8) — trước đây chỉ gửi session_key nên phiên Web luôn thiếu kênh
+          body: JSON.stringify({ session_key: sessionKey, landing_path: window.location.pathname, ...utmFromUrl() }),
         }).catch(() => {});
       }
     } catch {
@@ -751,6 +778,11 @@ export default function App() {
             const msg = JSON.parse(event.data);
             if (msg.type === 'TOPUP_SUCCESS') {
               const diffAmount = msg.amount || 0;
+              if (!claimTopupAnnouncement(msg.payment_id)) {
+                // Đã báo từ phản hồi giả lập → chỉ đồng bộ số liệu, không hiện thông báo lần 2
+                syncAppState(token);
+                return;
+              }
               setFinancialDiffNotice({
                 title: msg.is_late ? 'Nạp tiền muộn thành công (LATE)' : 'Nạp tiền QR thành công!',
                 prev: currentUser?.wallet?.available_balance ?? 0,
@@ -1262,6 +1294,11 @@ export default function App() {
           `Mã đơn: #${data.data.booking_id.slice(0, 8)} (${data.data.status}). Đơn giá chốt snapshot: ${data.data.total_fee_snapshot.toLocaleString('vi-VN')} VND. Vui lòng ký quỹ trong 10 phút.`
         );
         await syncAppState(token);
+      } else if (data.error?.code === 'TERMS_NOT_ACCEPTED') {
+        setTermsModalSlotId(slotId);
+      } else if (data.error?.code === 'EMAIL_NOT_VERIFIED') {
+        setVerifyEmailSlotId(slotId);
+        setShowVerifyEmail(true);
       } else {
         addToast('error', 'Không thể đặt lịch', `${data.error.message} (${data.error.code})`);
       }
@@ -1556,6 +1593,10 @@ export default function App() {
           'Đã tạo yêu cầu nạp tiền',
           `Số tiền: ${amount.toLocaleString('vi-VN')} VND. Vui lòng chọn kịch bản phản hồi Webhook giả lập bên dưới.`
         );
+      } else if (data.error?.code === 'EMAIL_NOT_VERIFIED') {
+        // Mở thẳng màn xác minh thay vì chỉ báo lỗi (trước đây Web không có chỗ xác minh)
+        setShowTopup(false);
+        setShowVerifyEmail(true);
       } else {
         addToast('error', 'Lỗi tạo yêu cầu nạp tiền', data.error.message);
       }
@@ -1582,7 +1623,11 @@ export default function App() {
       });
       const data = await res.json();
       if (data.success) {
-        if (outcome === 'SUCCESS') {
+        if (outcome === 'SUCCESS' && !claimTopupAnnouncement(activePayment.payment_id)) {
+          // Sự kiện realtime đã báo thành công trước → không hiện lần 2
+          setActivePayment(null);
+          setShowTopup(false);
+        } else if (outcome === 'SUCCESS') {
           const newAvailable = prevAvailable + topupAmount;
           setFinancialDiffNotice({
             title: `Nạp tiền thành công (${outcome})`,
@@ -2375,6 +2420,7 @@ export default function App() {
       .map((dbC, idx) => {
         const availableSlots = (dbC.slots || []).filter(s => s.status === 'AVAILABLE');
         const isLmht = (dbC.game_id || dbC.game?.game_id || '').toUpperCase() === 'LMHT';
+        const isSocial = (dbC.game as any)?.category === 'SOCIAL';
         return {
           id: dbC.profile_id,
           rankIndex: idx + 1,
@@ -2382,11 +2428,11 @@ export default function App() {
           verified: dbC.verification_status === 'VERIFIED',
           gameId: dbC.game_id || dbC.game?.game_id || 'LMHT',
           gameName: dbC.game?.game_name || (isLmht ? 'Liên Minh Huyền Thoại' : 'VALORANT'),
-          tier: dbC.tier?.tier_name || 'Bậc rank khai báo',
+          tier: dbC.tier?.tier_name || (isSocial ? 'Trò chuyện & Giải trí' : 'Bậc rank khai báo'),
           rating: dbC.rating !== undefined ? dbC.rating : 5.0 - (idx * 0.1),
           reviewCount: dbC.review_count !== undefined ? dbC.review_count : 28 - (idx * 9),
           hourlyRate: dbC.hourly_rate || 100000,
-          tags: isLmht ? ['Thách Đấu', 'Mid / Support', 'Micro call tốt'] : ['Radiant', 'Duelist', 'Aim cứng'],
+          tags: isSocial ? ['Lắng nghe', 'Tôn trọng', 'Escrow an toàn'] : isLmht ? ['Thách Đấu', 'Mid / Support', 'Micro call tốt'] : ['Radiant', 'Duelist', 'Aim cứng'],
           online: dbC.availability === 'ONLINE',
           quote: (dbC.user as any)?.bio || 'Companion chuyên nghiệp, giao tiếp văn minh, sẵn sàng phối hợp leo rank.',
           image: `/images/companions/c0${(idx % 6) + 1}.jpg`,
@@ -2422,8 +2468,11 @@ export default function App() {
     });
   }, [companions, selectedGame, searchQuery]);
 
-  const isDevMode = 
-    import.meta.env.DEV || 
+  // Công cụ demo (nút giả lập webhook nạp tiền…) hiện khi SERVER báo môi trường không phải production.
+  // Trước đây chỉ dựa vào chế độ build của Vite → bản build phục vụ ở :4000 / Docker ẩn mất nút, không hoàn tất được nạp tiền.
+  const isDevMode =
+    import.meta.env.DEV ||
+    (health?.environment !== undefined && health.environment !== 'production') ||
     (typeof window !== 'undefined' && (window.location.search.includes('dev=1') || window.location.search.includes('demo=1')));
 
   return (
@@ -2671,6 +2720,7 @@ export default function App() {
             setActiveTab={handleTabChangeWithGuard}
             onLogout={() => logout(false)}
             onTopupClick={() => setShowTopup(true)}
+            onVerifyEmailClick={() => setShowVerifyEmail(true)}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             myBookings={myBookings}
@@ -2692,9 +2742,19 @@ export default function App() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base md:text-lg font-bold text-white">Sàn Companion & Khám phá Game</h3>
-                    <p className="text-xs text-[#A3A3A3]">Chọn game bạn muốn chơi và đặt lịch trực tiếp</p>
+                    <p className="text-xs text-[#A3A3A3]">Chọn game hoặc dịch vụ Trò chuyện & Giải trí rồi đặt lịch trực tiếp</p>
                   </div>
                 </div>
+                {currentUser?.role === 'RENTER' && <WalletLedgerPanel token={token} refreshKey={(currentUser?.wallet?.available_balance ?? 0) + (currentUser?.wallet?.escrow_balance ?? 0) * 7 + myBookings.length} />}
+                <NonGamerServices
+                  embedded
+                  selected={selectedGame}
+                  onSelectService={(serviceId) => {
+                    setSelectedGame(serviceId);
+                    const el = document.getElementById('companions');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                />
                 <GameRow
                   games={displayGames}
                   companions={displayCompanions}
@@ -3315,6 +3375,8 @@ export default function App() {
             </div>
 
             {/* CARD: SIMULATED WITHDRAWAL & WALLET MANAGEMENT (M7 - D18, BR-23) */}
+            <WalletLedgerPanel token={token} refreshKey={(currentUser?.wallet?.available_balance ?? 0) + myBookings.length + myWithdrawals.length} />
+
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-800 pb-3">
                 <div>
@@ -3514,6 +3576,12 @@ export default function App() {
                 Xử lý khiếu nại tranh chấp (RMA) và phê duyệt/chi trả các yêu cầu rút tiền của Companion.
               </p>
             </div>
+
+            {/* Ghi nhận vi phạm điều khoản (TERMS_AND_CONTRACTS.md Phần C, D40) */}
+            <ViolationPanel token={token} onToast={addToast} />
+
+            {/* G10: Báo cáo SLA khiếu nại theo tuần (mục tiêu 45 phút, D25) */}
+            <DisputeSlaReport token={token} />
 
             {/* DISPUTES QUEUE MANAGEMENT (M6 - PROMPT 10, BR-16, BR-17, BR-18, TC21-TC26) */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
@@ -3795,7 +3863,7 @@ export default function App() {
                             {al.severity}
                           </span>
                           <span className="font-bold text-white text-sm">{al.alert_type}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">#{al.alert_id.slice(0, 8)}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">#{String(al.alert_id).slice(0, 8)}</span>
                         </div>
                         <p className="text-[11px] text-slate-300">{al.message}</p>
                       </div>
@@ -4184,6 +4252,12 @@ export default function App() {
               </div>
             </div>
 
+            {/* G8/G9: Phiên truy cập, đăng ký và conversion theo kênh nguồn (utm_source, first-touch) */}
+            <ChannelConversionPanel channels={adminMetrics?.channels} />
+
+            {/* G10: Tỷ lệ Renter quay lại trong 30 ngày */}
+            <RetentionCard retention={adminMetrics?.retention} />
+
             {/* Daily Stats Table & eKYC Approvals */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Daily Chart / Table */}
@@ -4241,17 +4315,17 @@ export default function App() {
                 {pendingKycList.length > 0 ? (
                   <div className="space-y-3">
                     {pendingKycList.map((record: any) => (
-                      <div key={record.kyc_id} className="p-3 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl flex items-center justify-between gap-3 text-xs">
-                        <div>
+                      <div key={record.kyc_id} className="p-3 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
                           <p className="font-bold text-white">{record.user?.display_name || 'Companion'}</p>
-                          <p className="text-[11px] text-[#A3A3A3]">{record.user?.email}</p>
+                          <p className="text-[11px] text-[#A3A3A3] break-all">{record.user?.email}</p>
                           <p className="text-[10px] text-[#6B6B6B] mt-0.5">
                             Gửi lúc: {new Date(record.created_at).toLocaleString('vi-VN')}
                           </p>
                         </div>
                         <button
                           onClick={() => handleOpenKycReview(record)}
-                          className="px-3 py-1.5 bg-[#E11D2E] hover:bg-[#B91C1C] text-white font-semibold rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5"
+                          className="shrink-0 px-3 py-1.5 bg-[#E11D2E] hover:bg-[#B91C1C] text-white font-semibold rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Xem & Xét duyệt</span>
@@ -4444,6 +4518,8 @@ export default function App() {
           <DisputeProcessPage />
         ) : currentPath === '/huong-dan-nap-rut' ? (
           <PaymentGuidePage />
+        ) : currentPath === '/quy-trinh-thong-nhat' ? (
+          <UnifiedWorkflowPage />
         ) : (
           <HomePage
             games={displayGames}
@@ -4457,6 +4533,35 @@ export default function App() {
       <Footer />
     </div>
   )}
+
+      <EmailVerificationModal
+        open={showVerifyEmail && !!currentUser}
+        email={currentUser?.email ?? ''}
+        onClose={() => {
+          setShowVerifyEmail(false);
+          setVerifyEmailSlotId(null);
+        }}
+        onVerified={async () => {
+          const slotId = verifyEmailSlotId;
+          setShowVerifyEmail(false);
+          setVerifyEmailSlotId(null);
+          if (token) await loadMe(token);
+          addToast('success', 'Xác minh email thành công', slotId ? 'Đang tiếp tục đặt lịch cho khung giờ bạn đã chọn…' : 'Bạn đã có thể nạp tiền và đặt lịch.');
+          if (slotId) handleBookSlot(slotId);
+        }}
+      />
+
+      <TermsAcceptanceModal
+        open={termsModalSlotId !== null}
+        token={token}
+        onClose={() => setTermsModalSlotId(null)}
+        onAccepted={() => {
+          const slotId = termsModalSlotId;
+          setTermsModalSlotId(null);
+          addToast('success', 'Đã chấp thuận điều khoản', 'Đang tiếp tục đặt lịch cho khung giờ bạn đã chọn…');
+          if (slotId) handleBookSlot(slotId);
+        }}
+      />
 
       {/* GAME ROOM MODAL (M6 - PROMPT 09) */}
       {showRoomModal && activeSession && (

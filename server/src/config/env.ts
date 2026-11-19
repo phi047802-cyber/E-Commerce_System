@@ -12,6 +12,8 @@ const envSchema = z.object({
   SLOT_HOLD_TTL_MINUTES: z.coerce.number().default(10),
   FULFILLMENT_ACCEPTANCE_TIMEOUT_MINUTES: z.coerce.number().default(15),
   BOOKING_RESPONSE_TIMEOUT_SECONDS: z.coerce.number().default(180),
+  // G10: nhắc đánh giá sau khi đơn hoàn tất bao lâu (phút); chỉ nhắc đơn hoàn tất trong 7 ngày gần nhất
+  REVIEW_REMINDER_DELAY_MINUTES: z.coerce.number().int().min(0).default(60),
   MAX_COMPANION_HOURS_PER_DAY: z.coerce.number().default(10),
   MIN_COMPANION_HOURLY_RATE: z.coerce.number().default(30000),
   MAX_COMPANION_HOURLY_RATE: z.coerce.number().default(1000000),
@@ -43,6 +45,16 @@ const envSchema = z.object({
   EKYC_ENCRYPTION_KEY: z.string().optional(),
   DATA_ENCRYPTION_KEY: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
+  // Pháp lý: bắt buộc chấp thuận điều khoản trước khi đặt lịch (TERMS_AND_CONTRACTS.md B.6)
+  REQUIRE_TERMS_ACCEPTANCE: z.preprocess((val) => {
+    if (val === undefined || val === null || val === '') return true;
+    return !['false', '0', 'no', 'off'].includes(String(val).trim().toLowerCase());
+  }, z.boolean().default(true)),
+  // Deep Link / App Links (NON_GAMER_GROWTH_STRATEGY.md §4) — placeholder đến khi phát hành (DEFERRED)
+  ANDROID_PACKAGE_NAME: z.string().default('vn.instasquad.app'),
+  ANDROID_SHA256_CERT_FINGERPRINTS: z.string().default('00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00'),
+  IOS_TEAM_ID: z.string().default('TEAMID0000'),
+  IOS_BUNDLE_ID: z.string().default('vn.instasquad.app'),
   ICE_SERVERS: z.string().default(
     JSON.stringify([
       { urls: 'stun:stun.l.google.com:19302' },

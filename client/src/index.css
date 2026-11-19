@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  /* Bấm menu neo (#games, #companions…) không để header cố định (~65px) che tiêu đề mục */
+  html {
+    scroll-padding-top: 80px;
+  }
   body {
     margin: 0;
     font-family: 'Inter', 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

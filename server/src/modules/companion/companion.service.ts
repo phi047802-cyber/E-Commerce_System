@@ -189,6 +189,7 @@ export class CompanionService {
     const slots = await prisma.slotCalendar.findMany({
       where: {
         profile_id: profile.profile_id,
+        status: { not: 'REMOVED' },
       },
       orderBy: { start_time: 'asc' },
     });
@@ -229,6 +230,7 @@ export class CompanionService {
       where: {
         profile_id: profile.profile_id,
         start_time: { gte: new Date(startTime.getTime() - 24 * 60 * 60 * 1000) },
+        status: { not: 'REMOVED' }, // slot đã xóa mềm không chặn tạo slot mới trùng giờ
       },
     });
 
@@ -296,16 +298,42 @@ export class CompanionService {
       throw new BusinessError('SLOT_ALREADY_BOOKED', 'Không thể xóa khung giờ đã được đặt.');
     }
 
+    if (slot.status === 'REMOVED') {
+      return { message: 'Đã xóa khung giờ thành công.', soft_deleted: true };
+    }
+
     const now = new Date();
     if (slot.status === 'HELD' && slot.held_until && slot.held_until > now) {
       throw new BusinessError('SLOT_CURRENTLY_HELD', 'Khung giờ đang có người giữ chỗ tạm thời, không thể xóa lúc này.');
     }
 
-    await prisma.slotCalendar.delete({
-      where: { slot_id: slotId },
-    });
+    // Chỉ xóa khi slot còn trống (hoặc giữ chỗ đã quá hạn) — điều kiện nằm trong câu lệnh để không đua với đặt lịch đồng thời.
+    const removable = {
+      slot_id: slotId,
+      profile_id: profile.profile_id,
+      OR: [{ status: 'AVAILABLE' }, { status: 'HELD', held_until: { lt: now } }],
+    };
 
-    return { message: 'Đã xóa khung giờ thành công.' };
+    // 1. Slot chưa từng có đơn → xóa hẳn.
+    const deleted = await prisma.slotCalendar.deleteMany({ where: { ...removable, bookings: { none: {} } } });
+    if (deleted.count === 1) {
+      return { message: 'Đã xóa khung giờ thành công.', soft_deleted: false };
+    }
+
+    // 2. Slot từng có đơn (đã hủy / từ chối / quá hạn) → không xóa được vì lịch sử đơn & sổ cái tham chiếu tới slot.
+    //    Ẩn slot (REMOVED): không hiển thị, không đặt được, không chặn tạo slot mới trùng giờ.
+    const hidden = await prisma.slotCalendar.updateMany({
+      where: { ...removable, bookings: { none: { status: { not: 'CANCELLED' } } } },
+      data: { status: 'REMOVED', held_until: null },
+    });
+    if (hidden.count === 1) {
+      return { message: 'Đã xóa khung giờ thành công.', soft_deleted: true };
+    }
+
+    throw new BusinessError(
+      'SLOT_HAS_ACTIVE_BOOKING',
+      'Khung giờ đang có đơn đặt lịch chưa kết thúc, không thể xóa lúc này.'
+    );
   }
 
   private isValidAudioMagicBytes(buffer: Buffer): boolean {

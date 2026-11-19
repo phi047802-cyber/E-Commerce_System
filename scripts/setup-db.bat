@@ -1,22 +1,15 @@
 @echo off
 echo ========================================================
-echo  INSTASQUAD - Database Migration and Seed
+echo  INSTASQUAD - SQL Server Database Setup (D33)
 echo ========================================================
-echo.
-
-if not exist .env (
-    copy .env.example .env
-)
-
-echo [1/3] Generating Prisma Client...
+if not exist .env copy .env.example .env
+echo [1/4] Starting SQL Server container (skip if you use a local SQL Server)...
+call docker compose up -d mssql
+echo [2/4] Generating Prisma Client...
 call npx prisma generate
-
-echo [2/3] Applying Migrations...
-call npx prisma migrate dev --name init
-
-echo [3/3] Seeding Initial Demo Data...
+echo [3/4] Creating database (if missing) and applying migrations...
+call node scripts\db\ensure-database.mjs
+call npx prisma migrate deploy
+echo [4/4] Seeding demo data...
 call npm run prisma:seed
-
-echo.
-echo [DONE] Database setup completed successfully!
-pause
+echo [DONE] Database ready.

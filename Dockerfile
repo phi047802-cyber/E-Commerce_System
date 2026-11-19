@@ -23,14 +23,14 @@ RUN npm run build:server
 RUN npm run build:client
 
 # Expose backend (4000) and frontend (5173 / preview)
-EXPOSE 4000 5173
+EXPOSE 4000
 
 # Environment defaults
 ENV PORT=4000
 ENV NODE_ENV=production
-ENV DATABASE_URL="file:./prisma/dev.db"
+# DATABASE_URL (SQL Server) được truyền từ docker-compose.yml
 ENV JWT_SECRET="instasquad_super_secret_jwt_demo_key_2026"
 ENV CLIENT_URL="http://localhost:5173"
 
 # Entrypoint: ensure migrations and seed are ready, then launch dev/start
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run prisma:seed && npm run dev"]
+CMD ["sh", "-c", "node scripts/db/ensure-database.mjs && npx prisma migrate deploy && npm run prisma:seed && npm run dev:server"]

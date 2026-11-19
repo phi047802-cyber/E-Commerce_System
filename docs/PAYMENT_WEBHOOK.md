@@ -34,7 +34,7 @@ flowchart TD
 ```
 
 ### 1.1. Giao diện trừu tượng (`IPaymentProvider`)
-Được định nghĩa tại [`server/src/modules/payment/payment-provider.interface.ts`](file:///c:/INSTASQUAD/INSTASQUAD/server/src/modules/payment/payment-provider.interface.ts):
+Được định nghĩa tại [`server/src/modules/payment/payment-provider.interface.ts`](../server/src/modules/payment/payment-provider.interface.ts):
 - `name`: Tên định danh provider (`sepay` hoặc `simulator`).
 - `createPayment(params)`: Khởi tạo đơn nạp tiền `Payment` trạng thái `PENDING`, thời hạn hiệu lực 15 phút, sinh mã nội dung chuyển khoản duy nhất `gateway_ref` và URL mã QR.
 

@@ -84,4 +84,4 @@ Dự án INSTASQUAD đã đạt đầy đủ các tiêu chuẩn kỹ thuật c�
    - Thử bấm đổi vai trò trên Header sang `Renter 1`, `Companion 1`, `CS Agent`, `Auditor` để xác nhận phiên hiển thị đúng tên và số dư.
    - Xem trang chủ: bảo đảm các ảnh banner và thẻ game (LMHT, Valorant, TFT) hiển thị rõ nét, không bị vỡ ảnh.
 4. **Chuẩn bị file tài liệu**:
-   - Mở sẵn file [`docs/DEMO_RUNBOOK.md`](file:///C:/INSTASQUAD/INSTASQUAD/docs/DEMO_RUNBOOK.md) bên cạnh để nhìn nhanh số liệu và lời thuyết minh khi Hội đồng đặt câu hỏi.
+   - Mở sẵn file [`docs/DEMO_RUNBOOK.md`](DEMO_RUNBOOK.md) bên cạnh để nhìn nhanh số liệu và lời thuyết minh khi Hội đồng đặt câu hỏi.

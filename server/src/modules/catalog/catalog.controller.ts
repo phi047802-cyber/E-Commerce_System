@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { extractUtm } from '../../common/utm.js';
 import crypto from 'crypto';
 import { prisma } from '../../common/prisma.js';
 import { sendSuccess } from '../../common/response.js';
@@ -6,9 +7,19 @@ import { NotFoundError } from '../../common/errors.js';
 import { env } from '../../config/env.js';
 import { mockGameRankProvider } from '../companion/game-rank-provider.js';
 
-export async function getGames(_req: Request, res: Response): Promise<void> {
+const SERVICE_CATEGORIES = ['GAME', 'SOCIAL'] as const;
+
+function parseCategory(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || raw === '' || raw.toUpperCase() === 'ALL') return undefined;
+  const upper = raw.toUpperCase();
+  return (SERVICE_CATEGORIES as readonly string[]).includes(upper) ? upper : '__INVALID__';
+}
+
+/** GET /api/games?category=GAME|SOCIAL — danh mục dịch vụ (Game + Non-gamer, D35). */
+export async function getGames(req: Request, res: Response): Promise<void> {
+  const category = parseCategory(req.query.category);
   const games = await prisma.gameCatalog.findMany({
-    where: { is_active: true },
+    where: { is_active: true, ...(category ? { category } : {}) },
     include: {
       tiers: {
         orderBy: { rank_weight: 'asc' },
@@ -47,6 +58,12 @@ export async function getCompanions(req: Request, res: Response): Promise<void> 
   // 1. Tiêu chí Game (FR-002, UC02)
   if (game_id && game_id !== 'ALL') {
     whereClause.game_id = game_id;
+  }
+
+  // 1b. Nhóm dịch vụ GAME / SOCIAL (Non-gamer, D35)
+  const category = parseCategory(query.category);
+  if (category) {
+    whereClause.game = { category };
   }
 
   // 2. Tiêu chí Rank / Bậc kỹ năng (FR-002, UC02)
@@ -162,6 +179,7 @@ export async function getCompanions(req: Request, res: Response): Promise<void> 
       slots: {
         where: {
           start_time: { gte: now },
+          status: { not: 'REMOVED' },
         },
         orderBy: { start_time: 'asc' },
       },
@@ -375,6 +393,7 @@ export async function getCompanionById(req: Request, res: Response): Promise<voi
       slots: {
         where: {
           start_time: { gte: now },
+          status: { not: 'REMOVED' },
         },
         orderBy: { start_time: 'asc' },
       },
@@ -451,6 +470,7 @@ export async function getCompanionSlots(req: Request, res: Response): Promise<vo
     where: {
       profile_id: id,
       start_time: { gte: now },
+      status: { not: 'REMOVED' },
     },
     orderBy: { start_time: 'asc' },
   });
@@ -460,6 +480,7 @@ export async function getCompanionSlots(req: Request, res: Response): Promise<vo
 
 export async function recordVisit(req: Request, res: Response): Promise<void> {
   const { session_key } = req.body;
+  const utm = extractUtm(req.body);
   if (!session_key || typeof session_key !== 'string') {
     res.status(400).json({
       success: false,
@@ -494,9 +515,15 @@ export async function recordVisit(req: Request, res: Response): Promise<void> {
         session_key,
         ip_hash: ipHash,
         user_agent: userAgent.slice(0, 255),
+        ...utm,
       },
     });
   }
 
   sendSuccess(res, { session_key, recorded: !existing, is_bot: false });
 }
+
+
+/** Chuẩn hóa tham số UTM (G8 — đo phễu theo kênh Social). Chỉ nhận chuỗi ngắn, chữ/số/-/_ . */
+// extractUtm chuyển sang common/utm.ts (dùng chung với đăng ký — G9); re-export để giữ tương thích.
+export { extractUtm } from '../../common/utm.js';

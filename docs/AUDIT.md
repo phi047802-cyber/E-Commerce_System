@@ -5,7 +5,7 @@
 > **Thời điểm audit**: 2026-11-06 (Bản chuẩn hóa duy nhất thống nhất toàn hệ thống)  
 > **Trạng thái kiểm thử**: **250 / 250 Tests PASS (100% GREEN – 25 Test Suites: 20 Integration, 5 Unit)**  
 > **Trạng thái Client**: Vite build PASS (TypeScript strict, Gaming Tone Đen – Đỏ `#0A0A0A` & `#E11D2E`)  
-> **Nguồn tham chiếu vận hành**: **Playerduo** & **Lita** ([`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md))  
+> **Nguồn tham chiếu vận hành**: **Playerduo** & **Lita** ([`docs/REFERENCE_MAPPING.md`](REFERENCE_MAPPING.md))  
 > **Ba số liệu tổng kết tham chiếu chuẩn hóa (28 dòng REF)**:  
 > &nbsp;&nbsp;&nbsp;&nbsp;**(a) Mức hoàn thiện triển khai (28 dòng REF)**: **25 dòng Đầy đủ (89.3%)**, **2 dòng Một phần (7.1%)** (`REF-CHAT-01`, `REF-TAX-01`), **1 dòng Tùy chọn (3.6%)** (`REF-AUTH-03`), **0 dòng Thiếu ngoài tầm kiểm soát**.  
 > &nbsp;&nbsp;&nbsp;&nbsp;**(b) Độ chính xác tài liệu tham chiếu (28 dòng REF)**: **24 dòng KHỚP (85.7%)**, **3 dòng KHÁC NGUỒN (10.7%)** (`REF-DONE-01`, `REF-WDRAW-02`, `REF-TAX-01`), **1 dòng CHƯA KIỂM CHỨNG ĐƯỢC (3.6%)** (Ảnh Lita nút Nạp Xu `REF-TOPUP-01` chưa có tệp trên đĩa).  
@@ -172,7 +172,7 @@ Hệ thống triển khai cơ chế xác thực tập trung bằng **JSON Web To
 
 ## 5. Bảng Đối chiếu Tham chiếu Vận hành REFERENCE_MAPPING (Playerduo & Lita)
 
-Bảng đối chiếu toàn diện từng ID dòng tại Mục 2 và Mục 3 của [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md) với hiện trạng mã nguồn hệ thống (được phân loại chi tiết theo mức độ thực thi: **Thật**, **Mô phỏng** hoặc **Dev-only**):
+Bảng đối chiếu toàn diện từng ID dòng tại Mục 2 và Mục 3 của [`docs/REFERENCE_MAPPING.md`](REFERENCE_MAPPING.md) với hiện trạng mã nguồn hệ thống (được phân loại chi tiết theo mức độ thực thi: **Thật**, **Mô phỏng** hoặc **Dev-only**):
 
 | ID | Luồng / Bước nghiệp vụ | Trạng thái | Mức độ thật | File liên quan, Mã hàm & Bằng chứng kiểm thử |
 |:---|:---|:---:|:---:|:---|

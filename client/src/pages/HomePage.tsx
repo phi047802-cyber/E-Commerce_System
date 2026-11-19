@@ -6,6 +6,8 @@ import { TrendingCompanions } from '../components/TrendingCompanions';
 import { TopCompanions } from '../components/TopCompanions';
 import { CommunityHub } from '../components/CommunityHub';
 import { NewsAndWhyChoose } from '../components/NewsAndWhyChoose';
+import { NonGamerServices } from '../components/NonGamerServices';
+import { UnifiedWorkflowSection } from '../components/UnifiedWorkflowSection';
 import { MockGame, MockCompanion } from '../data/mock';
 
 interface HomePageProps {
@@ -47,6 +49,9 @@ export const HomePage: React.FC<HomePageProps> = ({
         />
       </div>
 
+      {/* 1.4. Quy trình thống nhất 8 bước Web & App (docs/UNIFIED_WORKFLOW.md) */}
+      <UnifiedWorkflowSection compact />
+
       {/* 1.5. Escrow Mechanism Process (5 steps, 2 highlight cards) */}
       <EscrowProcessSection />
 
@@ -57,6 +62,15 @@ export const HomePage: React.FC<HomePageProps> = ({
         selectedGame={selectedGame}
         onSelectGame={(gameId) => {
           onSelectGame(gameId);
+          handleScrollToCompanions();
+        }}
+      />
+
+      {/* 2.5. Dịch vụ cho người không mê game (D35) */}
+      <NonGamerServices
+        selected={selectedGame}
+        onSelectService={(serviceId) => {
+          onSelectGame(serviceId);
           handleScrollToCompanions();
         }}
       />

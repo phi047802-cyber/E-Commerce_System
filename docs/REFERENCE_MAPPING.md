@@ -130,7 +130,7 @@ Toàn bộ các quy tắc dưới đây là **Quy tắc của nhóm** dựa trê
 - **Tài liệu đối chiếu**: `docs/source/INSTASQUAD_BPMN_TKHT.pdf` (Tài liệu Thiết kế Hệ thống và Quy trình Nghiệp vụ BPMN).
 - **Tổng số trang thật của tệp PDF**: **19 trang** (xác nhận chính xác 100% bằng lệnh `pypdf.PdfReader`).
 - **Phương pháp đếm trang**: Số trang tuyệt đối (1-based index) từ trang 1 đến trang 19 của tệp `INSTASQUAD_BPMN_TKHT.pdf`.
-- **Nguyên tắc mã quy tắc**: Mỗi quy tắc cốt lõi được gắn **DUY NHẤT MỘT MÃ BR** (căn cứ theo tài liệu gốc [`docs/TRACEABILITY_FINAL.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/TRACEABILITY_FINAL.md)), không ghi hai mã trong ngoặc.
+- **Nguyên tắc mã quy tắc**: Mỗi quy tắc cốt lõi được gắn **DUY NHẤT MỘT MÃ BR** (căn cứ theo tài liệu gốc [`docs/TRACEABILITY_FINAL.md`](TRACEABILITY_FINAL.md)), không ghi hai mã trong ngoặc.
 
 | STT | Quy tắc cốt lõi | Mã BR duy nhất | Dòng tại `TRACEABILITY_FINAL.md` | Mã Quyết định D | Số trang PDF thật (`INSTASQUAD_BPMN_TKHT.pdf`) | Câu trích gốc nguyên văn ($\le 15$ từ) | Hiện trạng kiểm chứng & Triển khai |
 |:---:|:---|:---:|:---:|:---:|:---|:---|:---|

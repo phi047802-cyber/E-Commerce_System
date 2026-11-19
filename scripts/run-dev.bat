@@ -6,7 +6,7 @@ echo.
 
 node -v >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js is not installed or not in PATH! Please install Node.js 18+.
+    echo [ERROR] Node.js is not installed or not in PATH! Please install Node.js 20+.
     pause
     exit /b 1
 )
@@ -16,10 +16,25 @@ if not exist .env (
     copy .env.example .env
 )
 
-if not exist prisma\dev.db (
-    echo [SETUP] Database not found. Running migrations and seed...
-    call npm run setup
+echo [DB] Ensuring SQL Server container is running...
+call docker compose up -d mssql
+
+if not exist node_modules\ goto first_setup
+if not exist client\node_modules\ goto first_setup
+call node scripts\db\ensure-database.mjs
+call npx prisma migrate deploy
+goto start
+
+:first_setup
+echo [SETUP] First run: installing packages, creating database, migrating and seeding...
+call npm run setup
+if %errorlevel% neq 0 (
+    echo [ERROR] Setup failed. See messages above.
+    pause
+    exit /b 1
 )
+
+:start
 
 echo.
 echo [START] Starting Backend API and Frontend in parallel...

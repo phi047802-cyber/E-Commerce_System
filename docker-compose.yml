@@ -1,19 +1,43 @@
-version: '3.8'
-
+# INSTASQUAD — môi trường dev cục bộ (D33)
+# Chỉ cần SQL Server:   docker compose up -d mssql
+# Toàn bộ (DB + app):   docker compose up -d --build
 services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: instasquad-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      # Mật khẩu chỉ dùng cho container dev cục bộ — đổi trong môi trường thật
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-InstaSquad_Dev#2026}"
+      MSSQL_MEMORY_LIMIT_MB: "1536"
+    ports:
+      - "14330:1433"
+    volumes:
+      - instasquad_mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: instasquad_app
+    depends_on:
+      mssql:
+        condition: service_healthy
     ports:
       - "4000:4000"
-      - "5173:5173"
     environment:
-      - PORT=4000
-      - NODE_ENV=development
-      - DATABASE_URL=file:./prisma/dev.db
-      - JWT_SECRET=instasquad_super_secret_jwt_demo_key_2026
-      - CLIENT_URL=http://localhost:5173
+      PORT: "4000"
+      NODE_ENV: development
+      DATABASE_URL: "sqlserver://mssql:1433;database=instasquad;user=sa;password={${MSSQL_SA_PASSWORD:-InstaSquad_Dev#2026}};encrypt=true;trustServerCertificate=true"
+      JWT_SECRET: instasquad_docker_demo_jwt_secret_change_me
+      CORS_ORIGIN: http://localhost:4000
     restart: unless-stopped
 
+volumes:
+  instasquad_mssql_data:

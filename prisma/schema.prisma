@@ -1,12 +1,12 @@
 // INSTASQUAD — Prisma Schema
-// Tương thích SQLite 3 (local) và PostgreSQL (production)
+// CSDL trung tâm: Microsoft SQL Server 2022 (D33). Quy ước ánh xạ SQL Server: xem D34 trong docs/DECISION_LOG.md.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
 
@@ -18,13 +18,18 @@ model User {
   phone_number  String?
   role          String   @default("RENTER") // RENTER, COMPANION, CS_AGENT, AUDITOR, ADMIN
   status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, BANNED
+  suspended_until DateTime? // Hạn tạm khóa do vi phạm (TERMS_AND_CONTRACTS.md Phần C)
   is_email_verified Boolean @default(true) // Đã xác minh email (UC01)
-  avatar_url    String?  // Ảnh đại diện bảo mật (REF-PROF-01)
-  bio           String?  // Tiểu sử / giới thiệu bản thân
+  avatar_url    String? @db.NVarChar(Max)  // Ảnh đại diện bảo mật (REF-PROF-01)
+  bio           String? @db.NVarChar(Max)  // Tiểu sử / giới thiệu bản thân
   date_of_birth DateTime? // Ngày sinh
-  favorite_games String? // Danh sách game yêu thích (chuỗi JSON hoặc danh sách phân tách dấu phẩy)
+  favorite_games String? @db.NVarChar(Max) // Danh sách game yêu thích (chuỗi JSON hoặc danh sách phân tách dấu phẩy)
   google_id     String?  @unique // Google OAuth2 Account ID (FR-001)
   is_onboarding_completed Boolean @default(true) // Trạng thái hoàn thiện hồ sơ sau đăng nhập Google (FR-001)
+  // Kênh nguồn first-touch lúc đăng ký (G9 — conversion theo utm_source). Web/App gửi UTM đã lưu từ lượt truy cập/deep link đầu tiên.
+  signup_utm_source   String?
+  signup_utm_medium   String?
+  signup_utm_campaign String?
   created_at    DateTime @default(now())
 
   // Quan hệ
@@ -46,7 +51,11 @@ model User {
   alerts_resolved     LedgerAuditAlert[]
   kyc_records         KycRecord[]          @relation("UserKycRecords")
   kyc_reviews         KycRecord[]          @relation("KycReviewer")
+  terms_acceptances   TermsAcceptance[]
+  violations          ViolationRecord[]    @relation("ViolationSubject")
+  violations_recorded ViolationRecord[]    @relation("ViolationRecorder")
 
+  @@index([signup_utm_source])
   @@map("users")
 }
 
@@ -60,15 +69,15 @@ model CompanionProfile {
   verification_status String   @default("UNVERIFIED") // UNVERIFIED, PENDING_REVIEW, VERIFIED
   availability        String   @default("OFFLINE") // ONLINE, BUSY, OFFLINE
   trust_score         Float    @default(80.00) // Khởi tạo 80.00 theo Demo Policy
-  audio_bio_url       String?
+  audio_bio_url       String? @db.NVarChar(Max)
   game_account_id     String?
   max_hours_per_day   Int      @default(10) // Giới hạn giờ nhận đơn/ngày (REF-PROF-01, BR-03, D08)
   created_at          DateTime @default(now())
 
   // Quan hệ
-  user             User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  game             GameCatalog?     @relation(fields: [game_id], references: [game_id])
-  tier             SkillRankTier?   @relation(fields: [verified_tier_id], references: [tier_id])
+  user             User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  game             GameCatalog?     @relation(fields: [game_id], references: [game_id], onDelete: NoAction, onUpdate: NoAction)
+  tier             SkillRankTier?   @relation(fields: [verified_tier_id], references: [tier_id], onDelete: NoAction, onUpdate: NoAction)
   slots            SlotCalendar[]
   bookings         Booking[]
   trust_score_logs TrustScoreLog[]
@@ -81,6 +90,8 @@ model GameCatalog {
   game_name  String
   publisher  String
   genre      String
+  category   String   @default("GAME") // GAME | SOCIAL (dịch vụ Non-gamer, D35)
+  description String? @db.NVarChar(Max)
   is_active  Boolean  @default(true)
 
   // Quan hệ
@@ -97,7 +108,7 @@ model SkillRankTier {
   rank_weight Int
 
   // Quan hệ
-  game        GameCatalog        @relation(fields: [game_id], references: [game_id], onDelete: Cascade)
+  game        GameCatalog        @relation(fields: [game_id], references: [game_id], onDelete: Cascade, onUpdate: NoAction)
   profiles    CompanionProfile[]
 
   @@map("skill_rank_tier")
@@ -108,13 +119,13 @@ model SlotCalendar {
   profile_id String
   start_time DateTime
   end_time   DateTime
-  status     String   @default("AVAILABLE") // AVAILABLE, HELD, BOOKED
+  status     String   @default("AVAILABLE") // AVAILABLE, HELD, BOOKED, REMOVED (xóa mềm khi slot từng có đơn)
   held_until DateTime?
   created_at DateTime @default(now())
 
   // Quan hệ
-  profile    CompanionProfile @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade)
-  booking    Booking?
+  profile    CompanionProfile @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade, onUpdate: NoAction)
+  bookings   Booking[] // Nhiều booking theo thời gian (đơn đã hủy + đơn đặt lại); tối đa 1 đơn chưa hủy (D45)
 
   @@index([profile_id, start_time])
   @@index([status, held_until])
@@ -125,7 +136,7 @@ model Booking {
   booking_id          String   @id @default(uuid())
   renter_id           String
   profile_id          String
-  slot_id             String   @unique
+  slot_id             String   // D45: không UNIQUE toàn cột — filtered unique index `bookings_slot_id_active_key` (status <> CANCELLED) trong migration
   request_key         String   @unique // Chống đặt trùng (BR-01)
   start_time          DateTime
   duration_hours      Int
@@ -133,16 +144,16 @@ model Booking {
   status              String   @default("PENDING_ACCEPTANCE") // PENDING_ACCEPTANCE, ACCEPTED, IN_SESSION, COMPLETED, CANCELLED, DISPUTED, REFUNDED
   response_deadline   DateTime // 180s đếm ngược (BR-08)
   confirm_deadline    DateTime? // 15 phút nghiệm thu (BR-14)
-  cancel_reason       String?
+  cancel_reason       String? @db.NVarChar(Max)
   cancelled_by        String?
   cancelled_at        DateTime?
   created_at          DateTime @default(now())
 
   // Quan hệ
-  renter              User                   @relation("RenterBookings", fields: [renter_id], references: [user_id])
-  companion           CompanionProfile       @relation(fields: [profile_id], references: [profile_id])
-  slot                SlotCalendar           @relation(fields: [slot_id], references: [slot_id])
-  canceller           User?                  @relation("CancelledByBookings", fields: [cancelled_by], references: [user_id])
+  renter              User                   @relation("RenterBookings", fields: [renter_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  companion           CompanionProfile       @relation(fields: [profile_id], references: [profile_id], onDelete: NoAction, onUpdate: NoAction)
+  slot                SlotCalendar           @relation(fields: [slot_id], references: [slot_id], onDelete: NoAction, onUpdate: NoAction)
+  canceller           User?                  @relation("CancelledByBookings", fields: [cancelled_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   escrow              Escrow?
   history             BookingStatusHistory[]
   session             Session?
@@ -155,6 +166,7 @@ model Booking {
   @@index([renter_id])
   @@index([profile_id])
   @@index([status])
+  @@index([slot_id])
   @@map("bookings")
 }
 
@@ -163,13 +175,13 @@ model BookingStatusHistory {
   booking_id   String
   from_status  String?
   to_status    String
-  reason       String?
+  reason       String? @db.NVarChar(Max)
   changed_by   String?
   changed_at   DateTime @default(now())
 
   // Quan hệ
-  booking      Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
-  actor        User?    @relation(fields: [changed_by], references: [user_id])
+  booking      Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade, onUpdate: NoAction)
+  actor        User?    @relation(fields: [changed_by], references: [user_id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([booking_id])
   @@map("booking_status_history")
@@ -185,7 +197,7 @@ model Session {
   created_at   DateTime @default(now())
 
   // Quan hệ
-  booking      Booking       @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  booking      Booking       @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade, onUpdate: NoAction)
   messages     ChatMessage[]
   call_logs    CallLog[]
 
@@ -200,14 +212,14 @@ model CallLog {
   started_at   DateTime  @default(now())
   ended_at     DateTime?
   duration_sec Int       @default(0)
-  events       String?   // JSON mảng sự kiện: [{ event, timestamp, details }]
+  events       String? @db.NVarChar(Max)   // JSON mảng sự kiện: [{ event, timestamp, details }]
   result       String    @default("COMPLETED") // COMPLETED, MISSED, REJECTED, FAILED
   created_at   DateTime  @default(now())
 
   // Quan hệ
-  session      Session   @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
-  caller       User      @relation("CallInitiator", fields: [caller_id], references: [user_id])
-  receiver     User?     @relation("CallReceiver", fields: [receiver_id], references: [user_id])
+  session      Session   @relation(fields: [session_id], references: [session_id], onDelete: Cascade, onUpdate: NoAction)
+  caller       User      @relation("CallInitiator", fields: [caller_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  receiver     User?     @relation("CallReceiver", fields: [receiver_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([session_id])
   @@map("call_logs")
@@ -217,14 +229,14 @@ model ChatMessage {
   message_id       Int      @id @default(autoincrement())
   session_id       String
   sender_id        String
-  content          String   // Nội dung đã kiểm duyệt
+  content          String @db.NVarChar(Max)   // Nội dung đã kiểm duyệt
   is_censored      Boolean  @default(false)
-  original_content String?  // Nội dung gốc phục vụ kiểm toán
+  original_content String? @db.NVarChar(Max)  // Nội dung gốc phục vụ kiểm toán
   created_at       DateTime @default(now())
 
   // Quan hệ
-  session          Session  @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
-  sender           User     @relation(fields: [sender_id], references: [user_id])
+  session          Session  @relation(fields: [session_id], references: [session_id], onDelete: Cascade, onUpdate: NoAction)
+  sender           User     @relation(fields: [sender_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([session_id, created_at])
   @@map("chat_messages")
@@ -241,7 +253,7 @@ model Wallet {
   updated_at        DateTime @default(now())
 
   // Quan hệ
-  user              User                @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user              User                @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
   entries           LedgerEntry[]
   withdrawals       WithdrawalRequest[]
 
@@ -259,7 +271,7 @@ model Escrow {
   refunded_at DateTime?
 
   // Quan hệ
-  booking     Booking             @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  booking     Booking             @relation(fields: [booking_id], references: [booking_id], onDelete: NoAction, onUpdate: NoAction)
   transactions LedgerTransaction[]
 
   @@map("escrows")
@@ -274,8 +286,8 @@ model LedgerTransaction {
   created_at      DateTime @default(now())
 
   // Quan hệ
-  booking         Booking?           @relation(fields: [booking_id], references: [booking_id])
-  escrow          Escrow?            @relation(fields: [escrow_id], references: [escrow_id])
+  booking         Booking?           @relation(fields: [booking_id], references: [booking_id], onDelete: SetNull, onUpdate: NoAction)
+  escrow          Escrow?            @relation(fields: [escrow_id], references: [escrow_id], onDelete: SetNull, onUpdate: NoAction)
   entries         LedgerEntry[]
   payment         Payment?
   platform_revenue PlatformRevenue?
@@ -298,8 +310,8 @@ model LedgerEntry {
   created_at    DateTime @default(now())
 
   // Quan hệ
-  transaction   LedgerTransaction @relation(fields: [txn_id], references: [txn_id], onDelete: Cascade)
-  wallet        Wallet            @relation(fields: [wallet_id], references: [wallet_id], onDelete: Cascade)
+  transaction   LedgerTransaction @relation(fields: [txn_id], references: [txn_id], onDelete: Cascade, onUpdate: NoAction)
+  wallet        Wallet            @relation(fields: [wallet_id], references: [wallet_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([wallet_id, created_at])
   @@index([txn_id])
@@ -317,11 +329,11 @@ model Payment {
   created_at   DateTime @default(now())
   processed_at DateTime?
   expires_at   DateTime?
-  qr_url       String?
+  qr_url       String? @db.NVarChar(Max)
   sepay_id     String?
 
   // Quan hệ
-  transaction  LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
+  transaction  LedgerTransaction? @relation(fields: [txn_id], references: [txn_id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([gateway_ref])
   @@map("payments")
@@ -335,7 +347,7 @@ model PlatformRevenue {
   created_at      DateTime @default(now())
 
   // Quan hệ
-  transaction     LedgerTransaction @relation(fields: [txn_id], references: [txn_id], onDelete: Cascade)
+  transaction     LedgerTransaction @relation(fields: [txn_id], references: [txn_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("platform_revenues")
 }
@@ -349,15 +361,15 @@ model WithdrawalRequest {
   account_no_masked String
   status            String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, REJECTED
   processed_by      String?
-  reject_reason     String?
+  reject_reason     String? @db.NVarChar(Max)
   payout_code       String?
   idempotency_key   String?  @unique
   processed_at      DateTime?
   created_at        DateTime @default(now())
 
   // Quan hệ
-  wallet            Wallet             @relation(fields: [wallet_id], references: [wallet_id])
-  transaction       LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
+  wallet            Wallet             @relation(fields: [wallet_id], references: [wallet_id], onDelete: NoAction, onUpdate: NoAction)
+  transaction       LedgerTransaction? @relation(fields: [txn_id], references: [txn_id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([wallet_id])
   @@map("withdrawal_requests")
@@ -368,21 +380,21 @@ model DisputeCase {
   booking_id            String    @unique // Chống tạo trùng khiếu nại (BR-26)
   renter_id             String
   reason_category       String   // NO_SHOW, HARASSMENT, SKILL_MISMATCH, TECHNICAL_ISSUE
-  description           String
+  description           String @db.NVarChar(Max)
   status                String    @default("OPENED") // OPENED, EVIDENCE_PENDING, UNDER_REVIEW, RESOLVED, CLOSED
   evidence_deadline     DateTime? // Hạn 24 giờ nộp bổ sung bằng chứng (D25)
   evidence_requested_at DateTime? // Thời điểm bắt đầu tạm dừng đồng hồ SLA (D25)
   paused_sla_ms         Int       @default(0) // Tổng mili-giây SLA đã tạm dừng khi chờ chứng cứ (D25)
   evidence_requested_by String?   // CS Agent ID yêu cầu bổ sung chứng cứ
-  evidence_request_note String?   // Ghi chú cụ thể của CS khi yêu cầu bổ sung
-  companion_explanation String?   // Lời giải trình của Companion (D29)
+  evidence_request_note String? @db.NVarChar(Max)   // Ghi chú cụ thể của CS khi yêu cầu bổ sung
+  companion_explanation String? @db.NVarChar(Max)   // Lời giải trình của Companion (D29)
   companion_explained_at DateTime? // Thời điểm Companion gửi giải trình
   created_at            DateTime  @default(now())
   resolved_at           DateTime?
 
   // Quan hệ
-  booking         Booking           @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
-  renter          User              @relation("RenterDisputes", fields: [renter_id], references: [user_id])
+  booking         Booking           @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade, onUpdate: NoAction)
+  renter          User              @relation("RenterDisputes", fields: [renter_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
   evidences       DisputeEvidence[]
   decision        DisputeDecision?
 
@@ -393,14 +405,14 @@ model DisputeEvidence {
   evidence_id String   @id @default(uuid())
   dispute_id  String
   uploader_id String
-  file_url    String
+  file_url    String @db.NVarChar(Max)
   file_type   String   // IMAGE_PNG, IMAGE_JPEG, LOG_TEXT
-  description String?
+  description String? @db.NVarChar(Max)
   created_at  DateTime @default(now())
 
   // Quan hệ
-  dispute     DisputeCase @relation(fields: [dispute_id], references: [dispute_id], onDelete: Cascade)
-  uploader    User        @relation(fields: [uploader_id], references: [user_id])
+  dispute     DisputeCase @relation(fields: [dispute_id], references: [dispute_id], onDelete: Cascade, onUpdate: NoAction)
+  uploader    User        @relation(fields: [uploader_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([dispute_id])
   @@map("dispute_evidences")
@@ -413,12 +425,12 @@ model DisputeDecision {
   fault_percent   Int      // Tỷ lệ lỗi Companion (0 - 100)
   refund_amount   Int      @default(0) // Số nguyên VND hoàn Renter
   penalty_amount  Int      @default(0) // Số nguyên VND phạt Companion
-  decision_reason String   // Lý do bắt buộc theo D15
+  decision_reason String @db.NVarChar(Max)   // Lý do bắt buộc theo D15
   created_at      DateTime @default(now())
 
   // Quan hệ
-  dispute         DisputeCase @relation(fields: [dispute_id], references: [dispute_id], onDelete: Cascade)
-  cs_agent        User        @relation(fields: [cs_agent_id], references: [user_id])
+  dispute         DisputeCase @relation(fields: [dispute_id], references: [dispute_id], onDelete: Cascade, onUpdate: NoAction)
+  cs_agent        User        @relation(fields: [cs_agent_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("dispute_decisions")
 }
@@ -429,13 +441,13 @@ model Review {
   reviewer_id String
   reviewee_id String
   rating      Int      // 1 đến 5 sao
-  comment     String?
+  comment     String? @db.NVarChar(Max)
   created_at  DateTime @default(now())
 
   // Quan hệ
-  booking     Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
-  reviewer    User     @relation("Reviewer", fields: [reviewer_id], references: [user_id])
-  reviewee    User     @relation("Reviewee", fields: [reviewee_id], references: [user_id])
+  booking     Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade, onUpdate: NoAction)
+  reviewer    User     @relation("Reviewer", fields: [reviewer_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  reviewee    User     @relation("Reviewee", fields: [reviewee_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([booking_id, reviewer_id]) // Mỗi người chỉ đánh giá 1 lần/booking (BR-22, D17)
   @@map("reviews")
@@ -451,8 +463,8 @@ model TrustScoreLog {
   created_at  DateTime @default(now())
 
   // Quan hệ
-  profile     CompanionProfile @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade)
-  booking     Booking?         @relation(fields: [booking_id], references: [booking_id])
+  profile     CompanionProfile @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade, onUpdate: NoAction)
+  booking     Booking?         @relation(fields: [booking_id], references: [booking_id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([profile_id])
   @@map("trust_score_logs")
@@ -462,14 +474,14 @@ model Notification {
   notification_id Int      @id @default(autoincrement())
   user_id         String
   title           String
-  message         String
+  message         String @db.NVarChar(Max)
   type            String
-  target_url      String?
+  target_url      String? @db.NVarChar(Max)
   is_read         Boolean  @default(false)
   created_at      DateTime @default(now())
 
   // Quan hệ
-  user            User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  user            User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([user_id, is_read])
   @@map("notifications")
@@ -481,12 +493,12 @@ model AuditLog {
   action       String
   entity_type  String
   entity_id    String
-  payload_json String?
+  payload_json String? @db.NVarChar(Max)
   ip_address   String?
   created_at   DateTime @default(now())
 
   // Quan hệ
-  actor        User?    @relation(fields: [actor_id], references: [user_id])
+  actor        User?    @relation(fields: [actor_id], references: [user_id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([entity_type, entity_id])
   @@map("audit_logs")
@@ -496,8 +508,8 @@ model LedgerAuditAlert {
   alert_id      Int      @id @default(autoincrement())
   txn_id        String?
   error_code    String
-  error_message String
-  context_json  String?
+  error_message String @db.NVarChar(Max)
+  context_json  String? @db.NVarChar(Max)
   repeat_count  Int      @default(1)
   is_resolved   Boolean  @default(false)
   resolved_by   String?
@@ -505,8 +517,8 @@ model LedgerAuditAlert {
   updated_at    DateTime @default(now()) @updatedAt
 
   // Quan hệ
-  transaction   LedgerTransaction? @relation(fields: [txn_id], references: [txn_id])
-  resolver      User?              @relation(fields: [resolved_by], references: [user_id])
+  transaction   LedgerTransaction? @relation(fields: [txn_id], references: [txn_id], onDelete: SetNull, onUpdate: NoAction)
+  resolver      User?              @relation(fields: [resolved_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([is_resolved])
   @@map("ledger_audit_alerts")
@@ -538,14 +550,14 @@ model KycRecord {
   selfie_iv        String
   selfie_tag       String
   status           String    @default("PENDING") // PENDING, VERIFIED, REJECTED
-  rejection_reason String?
+  rejection_reason String? @db.NVarChar(Max)
   reviewed_by      String?
   reviewed_at      DateTime?
   created_at       DateTime  @default(now())
 
   // Quan hệ
-  user             User      @relation("UserKycRecords", fields: [user_id], references: [user_id], onDelete: Cascade)
-  reviewer         User?     @relation("KycReviewer", fields: [reviewed_by], references: [user_id])
+  user             User      @relation("UserKycRecords", fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  reviewer         User?     @relation("KycReviewer", fields: [reviewed_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([user_id])
   @@index([status])
@@ -556,7 +568,11 @@ model SiteVisit {
   visit_id    String   @id @default(uuid())
   session_key String   @unique
   ip_hash     String?
-  user_agent  String?
+  user_agent  String? @db.NVarChar(Max)
+  utm_source   String? // tiktok | facebook | instagram | threads | referral ... (G8)
+  utm_medium   String?
+  utm_campaign String?
+  landing_path String?
   created_at  DateTime @default(now())
 
   @@map("site_visits")
@@ -569,12 +585,12 @@ model SettlementRetryQueue {
   max_attempts    Int      @default(3)
   next_retry_at   DateTime
   idempotency_key String   // CÙNG idempotency_key trên mọi lần thử (D26)
-  last_error      String?
+  last_error      String? @db.NVarChar(Max)
   status          String   @default("PENDING") // PENDING, SUCCESS, EXHAUSTED
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
-  booking         Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade)
+  booking         Booking  @relation(fields: [booking_id], references: [booking_id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("settlement_retry_queue")
 }
@@ -583,8 +599,8 @@ model News {
   news_id      String   @id @default(uuid())
   slug         String   @unique
   title        String
-  summary      String
-  content      String
+  summary      String @db.NVarChar(Max)
+  content      String @db.NVarChar(Max)
   category     String
   image_url    String
   author       String   @default("Ban Quản Trị INSTASQUAD")
@@ -595,4 +611,42 @@ model News {
   @@index([slug])
   @@index([category])
   @@map("news")
+}
+
+
+// ============================================================
+// Pháp lý (TERMS_AND_CONTRACTS.md) — Bước 3 nâng cấp đa nền tảng
+// ============================================================
+
+model TermsAcceptance {
+  acceptance_id String   @id @default(uuid())
+  user_id       String
+  terms_version String   // ví dụ TOS-2026.11
+  channel       String   @default("WEB") // WEB | MOBILE
+  ip_hash       String?
+  accepted_at   DateTime @default(now())
+
+  user          User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, terms_version])
+  @@map("terms_acceptances")
+}
+
+model ViolationRecord {
+  violation_id     String   @id @default(uuid())
+  user_id          String   // Người vi phạm
+  code             String   // V01..V08 (TERMS_AND_CONTRACTS.md Phần C)
+  severity         String   // LOW | MEDIUM | HIGH | CRITICAL
+  booking_id       String?
+  trust_delta      Float    @default(0)
+  suspension_days  Int      @default(0) // 0 = không khóa; -1 = khóa vĩnh viễn
+  note             String   @db.NVarChar(Max)
+  recorded_by      String   // CS Agent / Admin
+  created_at       DateTime @default(now())
+
+  user             User     @relation("ViolationSubject", fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  recorder         User     @relation("ViolationRecorder", fields: [recorded_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([user_id, code])
+  @@map("violation_records")
 }

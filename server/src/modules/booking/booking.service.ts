@@ -15,6 +15,7 @@ import { settlementService } from '../ledger/settlement.service.js';
 import { disputeService, CreateDisputeInput } from '../dispute/dispute.service.js';
 import { SYSTEM_ACCOUNTS } from '../ledger/ledger.types.js';
 import { logger } from '../../common/logger.js';
+import { legalService } from '../legal/legal.service.js';
 import { userMessages, formatShortId, FormattedNotification } from '../../common/messages.vi.js';
 
 export class BookingService {
@@ -29,6 +30,9 @@ export class BookingService {
         'EMAIL_NOT_VERIFIED'
       );
     }
+
+    // 0b. Bắt buộc chấp thuận điều khoản hiện hành trước khi giao dịch (TERMS_AND_CONTRACTS.md B.6, G6)
+    await legalService.assertTermsAccepted(renterId);
 
     const now = new Date();
 
@@ -81,7 +85,7 @@ export class BookingService {
       },
     });
 
-    if (!slot) {
+    if (!slot || slot.status === 'REMOVED') {
       throw new NotFoundError('Không tìm thấy khung giờ đặt lịch được yêu cầu.');
     }
 
@@ -190,6 +194,48 @@ export class BookingService {
           'SLOT_ALREADY_HELD',
           'Khung giờ này vừa có người khác giữ chỗ hoặc trạng thái không còn khả dụng.'
         );
+      }
+
+      // 5A'. Slot được giải phóng hoặc giữ chỗ đã hết hạn có thể còn đơn cũ chưa hủy (D45).
+      //      - Đơn cũ đã ký quỹ / đã chấp nhận → không được chiếm slot.
+      //      - Đơn cũ chưa ký quỹ (PENDING_ACCEPTANCE, giữ chỗ hết hạn) → hủy trong cùng transaction.
+      const staleBookings = await tx.booking.findMany({
+        where: { slot_id: input.slot_id, status: { not: 'CANCELLED' } },
+        select: { booking_id: true, status: true },
+      });
+      if (staleBookings.some((b) => b.status !== 'PENDING_ACCEPTANCE')) {
+        throw new ConflictError(
+          'SLOT_ALREADY_HELD',
+          'Khung giờ này đang có đơn đã ký quỹ đang chờ xử lý, không thể đặt lại.'
+        );
+      }
+      if (staleBookings.length > 0) {
+        const staleIds = staleBookings.map((b) => b.booking_id);
+        // Có điều kiện: nếu đơn cũ vừa ký quỹ song song (đã khóa dòng và chuyển trạng thái) thì count lệch → hủy giao dịch
+        const expired = await tx.booking.updateMany({
+          where: { booking_id: { in: staleIds }, status: 'PENDING_ACCEPTANCE' },
+          data: {
+            status: 'CANCELLED',
+            cancel_reason: 'Hết thời hạn giữ chỗ khi chưa ký quỹ; khung giờ đã được đặt lại.',
+            cancelled_at: now,
+          },
+        });
+        if (expired.count !== staleIds.length) {
+          throw new ConflictError(
+            'SLOT_ALREADY_HELD',
+            'Khung giờ này vừa được ký quỹ bởi người giữ chỗ trước, không thể đặt lại.'
+          );
+        }
+        await tx.bookingStatusHistory.createMany({
+          data: staleIds.map((id) => ({
+            booking_id: id,
+            from_status: 'PENDING_ACCEPTANCE',
+            to_status: 'CANCELLED',
+            reason: 'HOLD_EXPIRED — giữ chỗ quá hạn chưa ký quỹ, khung giờ được đặt lại',
+            changed_by: null,
+          })),
+        });
+        logger.info(`[Booking] Slot ${input.slot_id}: hủy ${staleIds.length} đơn giữ chỗ quá hạn chưa ký quỹ trước khi đặt lại.`);
       }
 
       // 5B. Tạo bản ghi Booking
@@ -377,8 +423,35 @@ export class BookingService {
 
     const responseDeadline = new Date(Date.now() + env.BOOKING_RESPONSE_TIMEOUT_SECONDS * 1000);
 
-    // Thực thi nguyên tử: Tạo Escrow + Ledger Posting + Cập nhật Booking + History
+    // Thực thi nguyên tử: Cập nhật Booking (có điều kiện) + Giữ slot + Tạo Escrow + Ledger Posting + History
     return await prisma.$transaction(async (tx) => {
+      // 0. Chuyển trạng thái CÓ ĐIỀU KIỆN trước mọi bút toán (D45): khóa dòng booking; nếu đơn vừa bị hủy
+      //    (vd. slot hết hạn giữ chỗ và đã được người khác đặt) thì dừng ngay, không tạo escrow/ledger.
+      const claimed = await tx.booking.updateMany({
+        where: { booking_id: booking.booking_id, status: 'PENDING_ACCEPTANCE' },
+        data: {
+          status: 'WAITING_COMPANION_RESPONSE',
+          response_deadline: responseDeadline,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictError(
+          'BOOKING_NO_LONGER_PENDING',
+          'Đơn đặt lịch không còn ở trạng thái chờ ký quỹ (có thể đã hết thời hạn giữ chỗ). Vui lòng đặt lại.'
+        );
+      }
+
+      // 0b. Giữ slot tới hết hạn phản hồi 180s: không để slot hết hạn giữ chỗ (10 phút) trong lúc chờ Companion
+      //     → người khác không thể chiếm slot của một đơn đã ký quỹ (D45).
+      await tx.slotCalendar.updateMany({
+        where: {
+          slot_id: booking.slot_id,
+          status: 'HELD',
+          OR: [{ held_until: null }, { held_until: { lt: responseDeadline } }],
+        },
+        data: { held_until: responseDeadline },
+      });
+
       // 1. Tạo Escrow
       const escrow = await tx.escrow.create({
         data: {
@@ -414,13 +487,9 @@ export class BookingService {
         tx
       );
 
-      // 3. Cập nhật Booking chuyển sang WAITING_COMPANION_RESPONSE với 180s deadline
-      const updatedBooking = await tx.booking.update({
+      // 3. Đọc lại Booking (đã chuyển WAITING_COMPANION_RESPONSE ở bước 0) kèm quan hệ để trả về
+      const updatedBooking = await tx.booking.findUniqueOrThrow({
         where: { booking_id: booking.booking_id },
-        data: {
-          status: 'WAITING_COMPANION_RESPONSE',
-          response_deadline: responseDeadline,
-        },
         include: {
           escrow: true,
           slot: true,

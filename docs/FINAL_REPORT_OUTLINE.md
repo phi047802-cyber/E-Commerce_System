@@ -55,7 +55,7 @@ Thương mại điện tử dịch vụ kết nối người chơi game đồng 
 - Companion cung cấp dịch vụ xong dễ bị người thuê quỵt tiền hoặc báo cáo gian lận với ngân hàng.
 - Thiếu cơ chế trung gian giám sát phiên chơi, đánh giá kỹ năng và xử lý khiếu nại minh bạch.
 
-Nhằm bảo đảm tính thực tiễn cao, hệ thống INSTASQUAD tiến hành đối chiếu cách vận hành (luồng nạp tiền, đặt lịch, hồ sơ, rút tiền...) với **HAI nền tảng C2C Game Companion thực tế** là **Playerduo** (Việt Nam) và **Lita** (Đông Nam Á) theo tài liệu [`docs/REFERENCE_MAPPING.md`](file:///c:/INSTASQUAD/INSTASQUAD/docs/REFERENCE_MAPPING.md). Đồng thời, các quy tắc nghiệp vụ cốt lõi (180s, 15m nghiệm thu, 88/12, phạt hủy bậc thang, RMA 80%, trần 10h/ngày, Sổ cái kép) được bảo toàn độc lập theo Project Charter và BPMN của nhóm.
+Nhằm bảo đảm tính thực tiễn cao, hệ thống INSTASQUAD tiến hành đối chiếu cách vận hành (luồng nạp tiền, đặt lịch, hồ sơ, rút tiền...) với **HAI nền tảng C2C Game Companion thực tế** là **Playerduo** (Việt Nam) và **Lita** (Đông Nam Á) theo tài liệu [`docs/REFERENCE_MAPPING.md`](REFERENCE_MAPPING.md). Đồng thời, các quy tắc nghiệp vụ cốt lõi (180s, 15m nghiệm thu, 88/12, phạt hủy bậc thang, RMA 80%, trần 10h/ngày, Sổ cái kép) được bảo toàn độc lập theo Project Charter và BPMN của nhóm.
 
 #### 1.2. Vấn đề nghiên cứu & Thách thức kỹ thuật
 Đề tài tập trung giải quyết 4 bài toán kỹ thuật trọng điểm trong giao dịch C2C:

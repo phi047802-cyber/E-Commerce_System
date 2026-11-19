@@ -1,40 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedNonGamerServices, seedTermsAcceptances, wipeAllBusinessData } from '../server/src/modules/catalog/non-gamer.seed.js';
+import { CURRENT_TERMS_VERSION } from '../server/src/modules/legal/legal.catalog.js';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting INSTASQUAD database seeding...');
 
-  // 1. Dọn dẹp dữ liệu cũ (Idempotent seed)
-  await prisma.news.deleteMany();
-  await prisma.siteVisit.deleteMany();
-  await prisma.authOtp.deleteMany();
-  await prisma.kycRecord.deleteMany();
-  await prisma.ledgerAuditAlert.deleteMany();
-  await prisma.auditLog.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.trustScoreLog.deleteMany();
-  await prisma.review.deleteMany();
-  await prisma.disputeDecision.deleteMany();
-  await prisma.disputeEvidence.deleteMany();
-  await prisma.disputeCase.deleteMany();
-  await prisma.chatMessage.deleteMany();
-  await prisma.session.deleteMany();
-  await prisma.bookingStatusHistory.deleteMany();
-  await prisma.booking.deleteMany();
-  await prisma.slotCalendar.deleteMany();
-  await prisma.platformRevenue.deleteMany();
-  await prisma.payment.deleteMany();
-  await prisma.ledgerEntry.deleteMany();
-  await prisma.ledgerTransaction.deleteMany();
-  await prisma.escrow.deleteMany();
-  await prisma.withdrawalRequest.deleteMany();
-  await prisma.wallet.deleteMany();
-  await prisma.companionProfile.deleteMany();
-  await prisma.skillRankTier.deleteMany();
-  await prisma.gameCatalog.deleteMany();
-  await prisma.user.deleteMany();
+  // 1. Dọn dẹp dữ liệu cũ (Idempotent seed) — thứ tự con → cha (SQL Server FK NO ACTION, D34)
+  await wipeAllBusinessData(prisma);
 
   console.log('🧹 Cleaned existing database tables.');
 
@@ -330,6 +305,10 @@ async function main() {
   });
 
   console.log('💰 Seeded Wallets and initial Ledger Transaction for Renter 1.');
+
+  await seedNonGamerServices(prisma, defaultPassword);
+  console.log('💬 Seeded 4 SOCIAL services + 2 Non-gamer Companions (D35).');
+  await seedTermsAcceptances(prisma, CURRENT_TERMS_VERSION);
 
   // 11. Seed initial anonymous SiteVisits for conversion rate demo
   await prisma.siteVisit.createMany({

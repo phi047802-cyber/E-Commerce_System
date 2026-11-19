@@ -7,6 +7,7 @@ import { asyncHandler } from '../../common/asyncHandler.js';
 import { sendSuccess } from '../../common/response.js';
 import { resolveDisputeSchema, requestEvidenceSchema } from '../dispute/dispute.dto.js';
 import { ForbiddenError } from '../../common/errors.js';
+import { getWeeklyDisputeSlaReport } from '../dispute/dispute-sla.report.js';
 
 export const csRouter = Router();
 export const adminRouter = Router();
@@ -145,5 +146,14 @@ csRouter.post(
     sendSuccess(res, result, 200, {
       is_idempotent_replay: result.is_idempotent_replay,
     });
+  })
+);
+
+// G10: Báo cáo SLA khiếu nại theo tuần (mục tiêu 45 phút, D25) — CS Agent & Admin (csRouter đã yêu cầu xác thực + phân quyền)
+csRouter.get(
+  '/reports/dispute-sla',
+  asyncHandler(async (req: Request, res: Response) => {
+    const weeks = Number(req.query.weeks ?? 8);
+    sendSuccess(res, await getWeeklyDisputeSlaReport(Number.isFinite(weeks) ? weeks : 8));
   })
 );
