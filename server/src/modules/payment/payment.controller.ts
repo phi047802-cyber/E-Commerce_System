@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { paymentService } from './payment.service.js';
 import { sendSuccess } from '../../common/response.js';
 import { ForbiddenError } from '../../common/errors.js';
+import { env } from '../../config/env.js';
 
 export async function handleCreateTopup(req: Request, res: Response): Promise<void> {
   const userId = req.user!.user_id;
@@ -28,6 +29,11 @@ export async function handleSepayWebhook(req: Request, res: Response): Promise<v
 }
 
 export async function handleSimulateOutcome(req: Request, res: Response): Promise<void> {
+  // Công cụ demo: endpoint không yêu cầu đăng nhập và tự ký webhook hợp lệ → TUYỆT ĐỐI không được bật ở production
+  // hoặc khi dùng cổng thanh toán thật (SePay), nếu không ai cũng có thể tự đánh dấu nạp tiền thành công.
+  if (env.NODE_ENV === 'production' || env.PAYMENT_PROVIDER !== 'simulator') {
+    throw new ForbiddenError('Cổng thanh toán giả lập chỉ dùng trong môi trường demo/phát triển.', 'SIMULATOR_DISABLED');
+  }
   const result = await paymentService.simulateOutcome(req.body);
   sendSuccess(res, result, 200, { is_idempotent_replay: result.is_idempotent_replay });
 }
