@@ -93,7 +93,8 @@ Mã nguồn `mobile/lib/features/…`; mỗi bước có widget test trong `mobi
 
 | Bước | Màn hình Mobile | Vai trò | API | Widget test |
 |:-:|---|---|---|---|
-| — | `LoginScreen`, `HomeShell` (Khám phá / Đơn của tôi / Ví) | Renter, Companion | `POST /api/auth/login`, `GET /api/auth/me` | Deep link khi chưa đăng nhập → Login → quay lại đúng hồ sơ |
+| — | `LoginScreen`, `HomeShell` (Khám phá / Đơn của tôi / Ví, banner nhắc xác minh email) | Renter, Companion | `POST /api/auth/login`, `GET /api/auth/me` | Deep link khi chưa đăng nhập → Login → quay lại đúng hồ sơ |
+| — | `RegisterScreen` → `VerifyEmailScreen` (UC01) | Khách → Renter, Companion | `POST /api/auth/register` (`accept_terms_version`, `channel: MOBILE`), `POST /api/auth/send-verification-otp`, `POST /api/auth/verify-email` | `register_verify_test.dart` (7 test) |
 | 1 | `DiscoverScreen` (tab Game / Trò chuyện & Giải trí) | Renter | `GET /api/games`, `GET /api/companions?category=` | Bước 1 |
 | 2 | `CompanionDetailScreen` → `BookingSheet` | Renter | `GET /api/companions/:id`, `POST /api/bookings` (`request_key`) | Bước 2+3 (kèm chặn `TERMS_NOT_ACCEPTED`) |
 | 3 | `BookingSheet`, `BookingDetailScreen`, `WalletScreen` → `TopupSheet` | Renter | `POST /api/bookings/:id/hold-escrow`, `POST /api/payments/create-topup`, `/simulate` | Bước 2+3, Bước 3/4b, Bước 3/7 |
@@ -104,4 +105,4 @@ Mã nguồn `mobile/lib/features/…`; mỗi bước có widget test trong `mobi
 | 8 | `ReviewSheet` | Cả hai | `POST /api/reviews` | Bước 8 |
 | — | `TermsScreen`, `WorkflowScreen` | Khách, mọi vai trò | `GET /api/legal/terms` | Quy trình & Điều khoản |
 
-Chưa có trên App: đăng ký tài khoản, xác minh email (UC01), eKYC/thiết lập slot của Companion, gọi thoại WebRTC — dùng Web.
+Chưa có trên App: eKYC/thiết lập slot của Companion, gọi thoại WebRTC, quên mật khẩu — dùng Web.

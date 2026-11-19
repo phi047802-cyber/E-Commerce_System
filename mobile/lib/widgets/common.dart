@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../core/api_client.dart';
@@ -10,12 +11,44 @@ const kGreen = Color(0xFF22C55E);
 const kAmber = Color(0xFFF59E0B);
 
 void showApiError(BuildContext context, Object error) {
+  if (error is ApiException && error.code == 'EMAIL_NOT_VERIFIED') {
+    _promptEmailVerification(context, error.message);
+    return;
+  }
   final msg = error is ApiException ? error.toString() : 'Lỗi kết nối: $error';
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: const Color(0xFF7F1D1D)));
+  // Ẩn thông báo đang hiện để lỗi mới không phải xếp hàng chờ 4 giây.
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(msg), backgroundColor: const Color(0xFF7F1D1D)));
 }
 
 void showInfo(BuildContext context, String msg) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(msg)));
+}
+
+/// Tài khoản chưa xác minh email (UC01). Dùng hộp thoại (nằm trên bottom sheet đặt lịch / nạp tiền) thay vì SnackBar
+/// vốn bị sheet che; "Xác minh ngay" đóng các popup đang mở rồi mở màn xác minh.
+void _promptEmailVerification(BuildContext context, String message) {
+  final router = GoRouter.maybeOf(context);
+  final navigator = Navigator.of(context, rootNavigator: true);
+  showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: const Icon(Icons.mark_email_unread_outlined, color: kAmber),
+      title: const Text('Cần xác minh email'),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Để sau')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xác minh ngay')),
+      ],
+    ),
+  ).then((go) {
+    if (go != true || router == null) return;
+    navigator.popUntil((route) => route is! PopupRoute);
+    router.push('/verify-email');
+  });
 }
 
 /// Khối tải dữ liệu với 3 trạng thái loading / error (có nút thử lại) / data.

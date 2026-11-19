@@ -37,6 +37,7 @@ Gợi ý: đặt `PUB_CACHE=D:\pub-cache` để cache package nằm trên ổ D.
 | 6 Nghiệm thu / khiếu nại | `session/session_room_screen.dart` → `ReportIssueSheet` |
 | 7 Giải ngân 88/12 | `wallet/wallet_screen.dart` (lịch sử sổ cái) |
 | 8 Đánh giá | `review/review_sheet.dart` |
+| Tài khoản (UC01) | `auth/register_screen.dart` (chấp thuận điều khoản kênh MOBILE khi đăng ký), `auth/verify_email_screen.dart` (OTP 6 số) |
 | Khác | `auth/login_screen.dart`, `legal/terms_screen.dart`, `workflow/workflow_screen.dart`, `home/home_shell.dart` |
 
 ## Deep link (`docs/NON_GAMER_GROWTH_STRATEGY.md` §4)
@@ -49,7 +50,13 @@ Gợi ý: đặt `PUB_CACHE=D:\pub-cache` để cache package nằm trên ổ D.
 - Deep link mặc định của Flutter bị tắt; `app_links` + `go_router` xử lý (`lib/core/deep_links.dart`). Link cần đăng nhập
   được giữ trong `?next=` và mở lại sau khi đăng nhập.
 
+## Đăng ký & xác minh email
+
+Đăng ký → App chuyển sang xác minh email. Chưa xác minh vẫn duyệt được, nhưng đặt lịch / nạp tiền bị server chặn `EMAIL_NOT_VERIFIED` → App hiện hộp thoại dẫn tới màn xác minh. Server giới hạn gửi lại 60 giây, mã hết hạn 10 phút, tối đa 5 lần sai.
+Môi trường dev không gửi email thật: mã OTP nằm trong log máy chủ (dòng `[EMAIL-SERVICE]`). Build phát hành: `--dart-define=DEMO_EMAIL=false` để ẩn ghi chú này.
+
 ## Kiểm thử
 
-`test/core_test.dart` (deep link, định dạng tiền/giờ, nhãn trạng thái, model) và `test/workflow_screens_test.dart`
-(widget test từng bước trên màn hình 360×800, backend giả có JSON theo đúng hình dạng API thật).
+`test/core_test.dart` (deep link, định dạng tiền/giờ, nhãn trạng thái, model), `test/workflow_screens_test.dart`
+(widget test từng bước trên màn hình 360×800) và `test/register_verify_test.dart` (đăng ký, OTP, giữ deep link, chặn khi chưa xác minh) — 27 test;
+backend giả có JSON theo đúng hình dạng API thật.
