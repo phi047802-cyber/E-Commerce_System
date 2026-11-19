@@ -120,7 +120,7 @@ model SlotCalendar {
 
   // Quan hệ
   profile    CompanionProfile @relation(fields: [profile_id], references: [profile_id], onDelete: Cascade, onUpdate: NoAction)
-  booking    Booking?
+  bookings   Booking[] // Nhiều booking theo thời gian (đơn đã hủy + đơn đặt lại); tối đa 1 đơn chưa hủy (D45)
 
   @@index([profile_id, start_time])
   @@index([status, held_until])
@@ -131,7 +131,7 @@ model Booking {
   booking_id          String   @id @default(uuid())
   renter_id           String
   profile_id          String
-  slot_id             String   @unique
+  slot_id             String   // D45: không UNIQUE toàn cột — filtered unique index `bookings_slot_id_active_key` (status <> CANCELLED) trong migration
   request_key         String   @unique // Chống đặt trùng (BR-01)
   start_time          DateTime
   duration_hours      Int
@@ -161,6 +161,7 @@ model Booking {
   @@index([renter_id])
   @@index([profile_id])
   @@index([status])
+  @@index([slot_id])
   @@map("bookings")
 }
 

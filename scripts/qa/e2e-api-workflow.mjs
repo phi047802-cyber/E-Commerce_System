@@ -188,6 +188,9 @@ async function main() {
     `hold ${B.hold.status} ${B.hold.code ?? ''}, reject ${rej.status}`);
   const slotsB = (await call('GET', `/api/companions/${sB.profile_id}/slots`)).data || [];
   check('Slot trở lại AVAILABLE sau khi từ chối', slotsB.some((s) => s.slot_id === sB.slot_id && s.status === 'AVAILABLE'));
+  const rebookB = await call('POST', '/api/bookings', { token: r1.token, body: { slot_id: sB.slot_id, request_key: key('rebookB') } });
+  check('D45: Renter khác đặt lại slot vừa bị từ chối', rebookB.status === 201, `HTTP ${rebookB.status} ${rebookB.code ?? ''}`);
+  if (rebookB.data?.booking_id) await call('POST', `/api/bookings/${rebookB.data.booking_id}/cancel`, { token: r1.token, body: { reason: 'QA dọn dẹp' } });
 
   // ── C. Hủy ≥ 30 phút trước giờ → hoàn 100% ──
   console.log('\n[C] Hủy trước giờ ≥ 30 phút');
@@ -201,6 +204,9 @@ async function main() {
     C.hold.status === 200 && accC.status === 200 && cancel.status === 200 &&
       r2AfterC.available_balance === r2BeforeC.available_balance && r2AfterC.escrow_balance === r2BeforeC.escrow_balance,
     `hold ${C.hold.status}, accept ${accC.status}, cancel ${cancel.status} ${cancel.code ?? ''}`);
+  const rebookC = await call('POST', '/api/bookings', { token: r1.token, body: { slot_id: sC.slot_id, request_key: key('rebookC') } });
+  check('D45: đặt lại slot vừa bị hủy', rebookC.status === 201, `HTTP ${rebookC.status} ${rebookC.code ?? ''}`);
+  if (rebookC.data?.booking_id) await call('POST', `/api/bookings/${rebookC.data.booking_id}/cancel`, { token: r1.token, body: { reason: 'QA dọn dẹp' } });
 
   // ── D. Khiếu nại → Escrow FROZEN → CS phán quyết lỗi 100% → hoàn 100% + phạt Companion 20% ──
   console.log('\n[D] Khiếu nại & phán quyết CS');
