@@ -2,7 +2,7 @@
 
 > Phiên bản 1.0 · 2026-11-18. Hai nhóm: **G-Tech** (nền tảng, kiểm chứng được bằng test/code trong repo) và **G-Growth** (marketing & kênh, KPI giả định để đo lường — nhãn `DEMO_POLICY`).
 > Cột "Trạng thái" được cập nhật ở Bước 6 dựa trên bằng chứng thực tế, không tự đánh Done.
-> **Trạng thái theo bằng chứng (18/11/2026)**: xem [`QA_REPORT.md` §10](QA_REPORT.md) — Đạt: G1, G2, G3, G4, G6 · Đạt một phần: G5 · Một phần: G7, G8 · G9, G10: **đã có công cụ đo** (19/11), KPI chưa đo được vì chưa có dữ liệu người dùng thật.
+> **Trạng thái theo bằng chứng (18/11/2026)**: xem [`QA_REPORT.md` §10](QA_REPORT.md) — Đạt: G1, G2, G3, G4, G6 · Đạt một phần: G5 · G7, G8, G9, G10: **đã có công cụ & nội dung** (19/11), KPI 90 ngày chưa đo được vì chưa có dữ liệu người dùng thật.
 
 ## 1. G-Tech — Nền tảng
 
@@ -34,9 +34,9 @@
 
 ### Checklist hành động G-Growth
 - [x] G7: Seed 4 dịch vụ SOCIAL + Companion mẫu; tab "Trò chuyện & Giải trí" trên Web và App.
-- [ ] G7: Onboarding 3 câu hỏi trên App.
-- [ ] G8: Endpoint `/go/*` ghi UTM; `.well-known` cho App Links/Universal Links (**đã làm**); lịch nội dung 4 tuần cho TikTok/Reels/Threads (**chưa làm**).
-- [ ] G8: Mỗi bài đăng một link `/go/...` riêng có `utm_campaign` để so sánh hiệu quả.
+- [x] G7: Onboarding 3 câu hỏi trên App (hoạt động / bắt đầu khi nào / ngân sách → Khám phá lọc sẵn; `mobile/lib/features/onboarding/`).
+- [x] G8: Endpoint `/go/*` ghi UTM; `.well-known` cho App Links/Universal Links; lịch nội dung 4 tuần cho TikTok/Reels/Threads ([`CONTENT_CALENDAR_4W.md`](CONTENT_CALENDAR_4W.md)).
+- [x] G8: Mỗi bài đăng một link `/go/...` riêng có `utm_campaign` để so sánh hiệu quả (74 bài / 74 campaign, đã kiểm tra mọi link trả 200).
 - [x] G9: Dashboard Admin hiển thị conversion theo `utm_source` (ghi nhận kênh first-touch lúc đăng ký, D47).
 - [x] G10: Thông báo nhắc đánh giá sau phiên; báo cáo SLA khiếu nại theo tuần (D48).
 
