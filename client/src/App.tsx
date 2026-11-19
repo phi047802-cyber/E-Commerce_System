@@ -63,6 +63,7 @@ import { EmailVerificationModal } from './components/auth/EmailVerificationModal
 import { ViolationPanel } from './components/legal/ViolationPanel';
 import { DisputeSlaReport } from './components/admin/DisputeSlaReport';
 import { ChannelConversionPanel } from './components/admin/ChannelConversionPanel';
+import { RetentionCard } from './components/admin/RetentionCard';
 import { rememberFirstTouch, utmFromUrl } from './common/attribution';
 import { WalletLedgerPanel } from './components/WalletLedgerPanel';
 import { NonGamerServices } from './components/NonGamerServices';
@@ -166,6 +167,14 @@ export default function App() {
   const [termsModalSlotId, setTermsModalSlotId] = useState<string | null>(null);
   // UC01: xác minh email trên Web. `verifyEmailSlotId` = khung giờ đang đặt dở để tự đặt tiếp sau khi xác minh.
   const [showVerifyEmail, setShowVerifyEmail] = useState(false);
+  // Chống hiện trùng thông báo nạp tiền: sự kiện realtime (WebSocket) và phản hồi nút giả lập cùng báo 1 payment
+  const announcedTopupIds = useRef<Set<string>>(new Set());
+  const claimTopupAnnouncement = (paymentId?: string) => {
+    if (!paymentId) return true;
+    if (announcedTopupIds.current.has(paymentId)) return false;
+    announcedTopupIds.current.add(paymentId);
+    return true;
+  };
   const [verifyEmailSlotId, setVerifyEmailSlotId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
@@ -769,6 +778,11 @@ export default function App() {
             const msg = JSON.parse(event.data);
             if (msg.type === 'TOPUP_SUCCESS') {
               const diffAmount = msg.amount || 0;
+              if (!claimTopupAnnouncement(msg.payment_id)) {
+                // Đã báo từ phản hồi giả lập → chỉ đồng bộ số liệu, không hiện thông báo lần 2
+                syncAppState(token);
+                return;
+              }
               setFinancialDiffNotice({
                 title: msg.is_late ? 'Nạp tiền muộn thành công (LATE)' : 'Nạp tiền QR thành công!',
                 prev: currentUser?.wallet?.available_balance ?? 0,
@@ -1609,7 +1623,11 @@ export default function App() {
       });
       const data = await res.json();
       if (data.success) {
-        if (outcome === 'SUCCESS') {
+        if (outcome === 'SUCCESS' && !claimTopupAnnouncement(activePayment.payment_id)) {
+          // Sự kiện realtime đã báo thành công trước → không hiện lần 2
+          setActivePayment(null);
+          setShowTopup(false);
+        } else if (outcome === 'SUCCESS') {
           const newAvailable = prevAvailable + topupAmount;
           setFinancialDiffNotice({
             title: `Nạp tiền thành công (${outcome})`,
@@ -4237,6 +4255,9 @@ export default function App() {
             {/* G8/G9: Phiên truy cập, đăng ký và conversion theo kênh nguồn (utm_source, first-touch) */}
             <ChannelConversionPanel channels={adminMetrics?.channels} />
 
+            {/* G10: Tỷ lệ Renter quay lại trong 30 ngày */}
+            <RetentionCard retention={adminMetrics?.retention} />
+
             {/* Daily Stats Table & eKYC Approvals */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Daily Chart / Table */}
@@ -4294,17 +4315,17 @@ export default function App() {
                 {pendingKycList.length > 0 ? (
                   <div className="space-y-3">
                     {pendingKycList.map((record: any) => (
-                      <div key={record.kyc_id} className="p-3 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl flex items-center justify-between gap-3 text-xs">
-                        <div>
+                      <div key={record.kyc_id} className="p-3 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
                           <p className="font-bold text-white">{record.user?.display_name || 'Companion'}</p>
-                          <p className="text-[11px] text-[#A3A3A3]">{record.user?.email}</p>
+                          <p className="text-[11px] text-[#A3A3A3] break-all">{record.user?.email}</p>
                           <p className="text-[10px] text-[#6B6B6B] mt-0.5">
                             Gửi lúc: {new Date(record.created_at).toLocaleString('vi-VN')}
                           </p>
                         </div>
                         <button
                           onClick={() => handleOpenKycReview(record)}
-                          className="px-3 py-1.5 bg-[#E11D2E] hover:bg-[#B91C1C] text-white font-semibold rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5"
+                          className="shrink-0 px-3 py-1.5 bg-[#E11D2E] hover:bg-[#B91C1C] text-white font-semibold rounded-lg text-xs transition cursor-pointer flex items-center gap-1.5"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Xem & Xét duyệt</span>

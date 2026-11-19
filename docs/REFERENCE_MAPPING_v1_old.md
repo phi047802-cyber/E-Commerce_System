@@ -48,7 +48,7 @@ Tài liệu này xác lập cơ sở pháp lý và nghiệp vụ thực tiễn c
     $$\sum_{i} \text{Debit}_i - \sum_{i} \text{Credit}_i = 0 \quad (\text{Variance} = 0)$$
   - Số dư tài khoản = Tổng các phát sinh Nợ/Có từ lúc khởi tạo đến hiện tại:
     $$\text{Balance} = \sum \text{Credits} - \sum \text{Debits}$$
-- **Ứng dụng tại INSTASQUAD:** Được cài đặt chặt chẽ qua Prisma transaction (`prisma.$transaction`) tại [server/src/services/wallet.service.ts](../server/src/services/wallet.service.ts) và bảo đảm tính toàn vẹn qua bộ kiểm thử `ledger.test.ts`.
+- **Ứng dụng tại INSTASQUAD:** Được cài đặt chặt chẽ qua Prisma transaction (`prisma.$transaction`) tại [server/src/modules/ledger/ledger.service.ts](../server/src/modules/ledger/ledger.service.ts) và bảo đảm tính toàn vẹn qua bộ kiểm thử `ledger.test.ts`.
 
 ---
 
