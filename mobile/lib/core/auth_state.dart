@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'config.dart';
+import 'onboarding.dart';
 
 class AppUser {
   AppUser({required this.id, required this.email, required this.displayName, required this.role, this.emailVerified});
@@ -39,7 +40,34 @@ class AuthState extends ChangeNotifier {
   AppUser? user;
   bool restoring = true;
 
+  /// G7: trạng thái onboarding lưu theo từng người dùng (`onboarding_done:<user_id>`).
+  bool _onboardingDone = true;
+  OnboardingPrefs? onboarding;
+
   bool get isLoggedIn => user != null;
+
+  /// Renter chưa trả lời (hoặc bỏ qua) 3 câu hỏi onboarding.
+  bool get needsOnboarding => user != null && user!.isRenter && !_onboardingDone;
+
+  Future<void> _loadOnboarding() async {
+    final u = user;
+    if (u == null) return;
+    _prefs ??= await SharedPreferences.getInstance();
+    _onboardingDone = _prefs!.getBool('onboarding_done:${u.id}') ?? false;
+    onboarding = OnboardingPrefs.decode(_prefs!.getString('onboarding_prefs:${u.id}'));
+  }
+
+  /// Lưu câu trả lời (null = bỏ qua) và đánh dấu đã onboarding — chỉ hỏi 1 lần cho mỗi tài khoản.
+  Future<void> completeOnboarding(OnboardingPrefs? answers) async {
+    final u = user;
+    if (u == null) return;
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setBool('onboarding_done:${u.id}', true);
+    if (answers != null) await _prefs!.setString('onboarding_prefs:${u.id}', answers.encode());
+    _onboardingDone = true;
+    onboarding = answers ?? onboarding;
+    notifyListeners();
+  }
 
   Future<void> restore() async {
     _prefs ??= await SharedPreferences.getInstance();
@@ -48,6 +76,7 @@ class AuthState extends ChangeNotifier {
       api.token = saved;
       try {
         user = await _fetchMe();
+        await _loadOnboarding();
       } on Exception {
         api.token = null;
         await _prefs!.remove('token');
@@ -108,6 +137,8 @@ class AuthState extends ChangeNotifier {
   Future<void> logout() async {
     api.token = null;
     user = null;
+    onboarding = null;
+    _onboardingDone = true;
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.remove('token');
     notifyListeners();
@@ -155,6 +186,7 @@ class AuthState extends ChangeNotifier {
     user = full;
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setString('token', api.token!);
+    await _loadOnboarding();
     notifyListeners();
   }
 }

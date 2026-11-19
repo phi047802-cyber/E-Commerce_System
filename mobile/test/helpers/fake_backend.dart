@@ -27,6 +27,9 @@ class FakeBackend {
 
   String? registeredEmail;
 
+  /// Companion SOCIAL bổ sung (test lọc onboarding G7) — mặc định rỗng để không ảnh hưởng test khác.
+  List<Map<String, dynamic>> extraSocialCompanions = [];
+
   String get userId => role == 'RENTER' ? 'u-renter-01' : 'u-comp-03';
 
   Map<String, dynamic> get me => {
@@ -137,7 +140,7 @@ class FakeBackend {
         ]);
       case 'GET /api/companions':
         final c = req.url.queryParameters['category'] ?? 'GAME';
-        return _ok(c == 'SOCIAL' ? [companionJson()] : <Object>[]);
+        return _ok(c == 'SOCIAL' ? [companionJson(), ...extraSocialCompanions] : <Object>[]);
       case 'GET /api/companions/prof-comp-03':
         return _ok(companionJson());
       case 'POST /api/bookings':
@@ -219,8 +222,14 @@ class FakeBackend {
     bool loggedIn = true,
     String initialLocation = '/discover',
     Map<String, Object> extraPrefs = const {},
+    bool onboarded = true,
   }) async {
-    SharedPreferences.setMockInitialValues({if (loggedIn) 'token': 'test-token', ...extraPrefs});
+    SharedPreferences.setMockInitialValues({
+      if (loggedIn) 'token': 'test-token',
+      // G7: mặc định coi như đã onboarding để các test luồng khác không bị chuyển sang màn 3 câu hỏi
+      if (onboarded) 'onboarding_done:$userId': true,
+      ...extraPrefs,
+    });
     final api = ApiClient(httpClient: client, baseUrl: 'http://test');
     final auth = AuthState(api);
     await tester.runAsync(auth.restore);
