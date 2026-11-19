@@ -2,7 +2,7 @@
 
 > Phiên bản 1.0 · 2026-11-18. Hai nhóm: **G-Tech** (nền tảng, kiểm chứng được bằng test/code trong repo) và **G-Growth** (marketing & kênh, KPI giả định để đo lường — nhãn `DEMO_POLICY`).
 > Cột "Trạng thái" được cập nhật ở Bước 6 dựa trên bằng chứng thực tế, không tự đánh Done.
-> **Trạng thái theo bằng chứng (18/11/2026)**: xem [`QA_REPORT.md` §10](QA_REPORT.md) — Đạt: G1, G2, G3, G4, G6 · Đạt một phần: G5 · Một phần: G7, G8 · Chưa: G9, G10.
+> **Trạng thái theo bằng chứng (18/11/2026)**: xem [`QA_REPORT.md` §10](QA_REPORT.md) — Đạt: G1, G2, G3, G4, G6 · Đạt một phần: G5 · Một phần: G7, G8 · G9, G10: **đã có công cụ đo** (19/11), KPI chưa đo được vì chưa có dữ liệu người dùng thật.
 
 ## 1. G-Tech — Nền tảng
 
@@ -37,8 +37,8 @@
 - [ ] G7: Onboarding 3 câu hỏi trên App.
 - [ ] G8: Endpoint `/go/*` ghi UTM; `.well-known` cho App Links/Universal Links (**đã làm**); lịch nội dung 4 tuần cho TikTok/Reels/Threads (**chưa làm**).
 - [ ] G8: Mỗi bài đăng một link `/go/...` riêng có `utm_campaign` để so sánh hiệu quả.
-- [ ] G9: Dashboard Admin hiển thị conversion theo `utm_source`.
-- [ ] G10: Thông báo nhắc đánh giá sau phiên; báo cáo SLA khiếu nại theo tuần.
+- [x] G9: Dashboard Admin hiển thị conversion theo `utm_source` (ghi nhận kênh first-touch lúc đăng ký, D47).
+- [x] G10: Thông báo nhắc đánh giá sau phiên; báo cáo SLA khiếu nại theo tuần (D48).
 
 ## 3. Ma trận liên kết
 
@@ -49,4 +49,4 @@
 | G4 | `UNIFIED_WORKFLOW.md` §3 | `client/`, `mobile/` |
 | G6 | `TERMS_AND_CONTRACTS.md` | `server/src/modules/legal` |
 | G7, G8 | `NON_GAMER_GROWTH_STRATEGY.md` | `catalog`, `growth` (`/go/*`, `.well-known`) |
-| G9, G10 | `DECISION_LOG.md` D27 | `admin.service.ts` |
+| G9, G10 | `DECISION_LOG.md` D27, D47, D48 | `admin.service.ts` (`channels`), `common/utm.ts`, `dispute/dispute-sla.report.ts`, `booking-automation.service.ts` (nhắc đánh giá) |
